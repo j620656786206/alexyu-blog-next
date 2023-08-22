@@ -1,2 +1,2 @@
-export const LOCALES = ['en', 'zh-TW'];
+export const LOCALES = ['zh-TW'];
 export const DEFAULT_LOCALE = 'zh-TW';
