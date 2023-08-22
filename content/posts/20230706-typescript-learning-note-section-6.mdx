@@ -1,0 +1,78 @@
+---
+title: Typescript 學習筆記 - Section 6
+description: 關於Typescript The Complete Developer's Guide的學習筆記, Section 6
+date: 2023-07-06
+slug: typescript-learning-note-section-6
+type: Post
+tags:
+  - typescript
+  - frontend
+---
+
+## Section Overview
+
+這章節主要會介紹如何使用 Tuples
+
+## Tuples in Typescript
+
+定義: 類似於array的資料型態，只是在aray中的每個element代表著某一筆資料的某個屬性
+
+比如說，以下的資料代表一杯飲料的object型態
+
+```js
+{
+  color: 'brown'
+  carbonated: true,
+  sugar: 40
+}
+```
+
+如果今天以array的形式來表示值的時候變成
+
+```js
+['brown', true, 40]
+```
+
+這時候array中每個element的順序性就很重要，因為順序如果錯亂則element所代表的值就會失去意義
+
+### Examples
+
+```ts
+const drink = {
+  color: 'brown'
+  carbonated: true,
+  sugar: 40
+}
+
+const pepsi: [string, boolean, number] = ['brown', true, 40]
+
+// will get ts error
+pepsi[0] =40
+
+// Type alias
+type Drink =  [string, boolean, number]
+const pepsi: Drink = ['brown', true, 40]
+const sprite: Drink = ['clear', true, 40]
+const tea: Drink = ['brown', false, 0]
+
+```
+
+## Why Tuples?
+
+假設我們今天看到一種資料
+
+```js
+const carSpecs: [number, number] = [400, 3354]
+```
+
+光看上面這一行會很難以理解每個數字所代表的意義，但如果轉成oject類型就很容易理解
+
+```js
+const carStats = {
+  horsepower: 400,
+  weight: 3354
+}
+```
+
+因為js object的關係，在object裡面要一個key搭配一個value，value所代表的意義會透過key表示出來，
+但有些時候我們所遇到的資料並不一定都會是以object型態呈現，這時候就需要Tuples來幫助表達資料代表的意義

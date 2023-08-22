@@ -1,0 +1,148 @@
+---
+title: React Component Design - Prop Collections and Getters
+description: React Component Design - Prop Collections and Getters
+date: 2023-08-14
+slug: react-component-design-prop-collections-and-getters
+type: Post
+tags:
+  - react
+  - component design
+  - design pattern
+  - prop collections and getters
+---
+
+回到`Render props component` 一開始的例子來看，假設我們使用`Toggle`的方式改成下面這樣
+
+```jsx
+function Usage({
+  onToggle = (...args) => console.log('onToggle', ...args),
+}) {
+  return (
+    <Toggle onToggle={onToggle}>
+      {({on, toggle}) => (
+        <div>
+          {on ? 'The button is on' : 'The button is off'}
+          <Switch on={on} onClick={toggle} />
+          <hr />
+          <button onClick={toggle} aria-pressed={on}>
+            {on ? 'on' : 'off'}
+          </button>
+          <hr />
+          <button aria-label="custom-button" onClick={toggle} aria-pressed={on}>
+            {on ? 'on' : 'off'}
+          </button>
+        </div>
+      )}
+    </Toggle>
+  )
+}
+```
+
+可以看到現在有兩個`button`可以改變`Toggle`的狀態，這兩個`button`接收到的`props`也有重複的地方，這時候我們可以在`Toggle`寫一個function回傳這些常見的`props`
+
+```jsx
+class Toggle extends React.Component {
+  //... Same as before
+  getStateAndHelpers() {
+    return {
+      on: this.state.on,
+      togglerProps: { // collection for common Props
+        "aria-pressed": this.state.on,
+        onClick: this.toggle
+      }
+    };
+  }
+
+  render() {
+    return this.props.children(this.getStateAndHelpers());
+  }
+}
+```
+
+使用`Toggle`的方式則會變成
+
+```jsx
+function Usage({
+  onToggle = (...args) => console.log('onToggle', ...args),
+}) {
+  return (
+    <Toggle onToggle={onToggle}>
+      {({on, togglerProps}) => (
+        <div>
+          <Switch on={on} {...togglerProps} />
+          <hr />
+          <button {...togglerProps}>
+            {on ? 'on' : 'off'}
+          </button>
+          <hr />
+          <button aria-label="custom-button" {...togglerProps}>
+            {on ? 'on' : 'off'}
+          </button>
+        </div>
+      )}
+    </Toggle>
+  )
+}
+```
+
+使用`togglerProps`這樣的方式就稱為`Prop Collections`， 上面的例子雖然解決了重複的程式碼，但也有幾個問題：
+
+- 如果這時候我們想要傳入客製化的`onClick`， 讓`button`的`onClick`除了執行`Toggle`的`toggle`以外，還要再執行這個`onClick` function的話，情況就開始變得複雜
+- 相反的，如果今天我們不希望一些`togglerProps`裡面的`props`傳給`button`的時候，就需要移掉這些`props`
+
+# Prop Getters
+
+要解決第一個問題的方法可以透過`Prop Getterrs`，在原本的`togglerProps`改用以 `function`的方式結合我們想要傳入的`props`
+
+```jsx
+const callAll = (...fns) => (...args) =>
+  fns.forEach(fn => fn && fn(...args))
+
+class Toggle extends React.Component {
+  //... Same as before
+  getTogglerProps = ({onClick, ...props} = {}) => ({
+    'aria-pressed': this.state.on,
+    onClick: callAll(onClick, this.toggle),
+    ...props,
+  })
+
+  getStateAndHelpers() {
+    return {
+      on: this.state.on,
+      toggle: this.toggle,
+      getTogglerProps: this.getTogglerProps,
+    }
+  }
+
+  render() {
+    return this.props.children(this.getStateAndHelpers())
+  }
+}
+
+function Usage({
+  onToggle = (...args) => console.log('onToggle', ...args),
+  onButtonClick = () => console.log('onButtonClick'),
+}) {
+  return (
+    <Toggle onToggle={onToggle}>
+      {({on, getTogglerProps}) => (
+        <div>
+          <Switch {...getTogglerProps({on})} />
+          <hr />
+          <button
+            {...getTogglerProps({
+              'aria-label': 'custom-button',
+              onClick: onButtonClick,
+              id: 'custom-button-id',
+            })}
+          >
+            {on ? 'on' : 'off'}
+          </button>
+        </div>
+      )}
+    </Toggle>
+  )
+}
+```
+
+這樣的方式解決了我們想要傳客製化的props到`Toggle`， 但卻不是完美。一來是這樣的方式沒辦法決定function執行的順序；二來這樣還是無法解決如果有些在`getTogglerProps`的`props`不希望傳給children component的時候，還是需要透過一些額外的方式移除這些`props`。

@@ -1,0 +1,121 @@
+---
+title: Typescript 學習筆記 - Section 1
+description: 關於Typescript The Complete Developer's Guide的學習筆記, Section 1
+date: 2023-01-03
+slug: typescript-learning-note-section-1
+type: Post
+tags:
+  - typescript
+  - frontend
+---
+
+這是有關於[Udemy](https://www.udemy.com/)線上課程[Typescript The Complete Developer's Guide](https://www.udemy.com/course/typescript-the-complete-developers-guide/)的學習筆記，導師是[Stephen Grider](https://www.udemy.com/user/sgslo/)。
+我滿喜歡這位老師的教學方式，之前就有買過一些他的課程，課程講解大都淺顯易懂，講解過程會有圖型解釋跟流程圖方便理解觀念。
+
+這一系列筆記將會記錄一些我在上課時覺得是重點的地方，過於簡單的就不贅述。
+
+
+## Typescript Overview
+
+### What is Typescript
+
+Typescript 其實就只是 javascript + a type system，在寫 Typescript 的時候其實就只是在寫 javascript。這個 type system 可以幫助我們
+
+- 在開發時 debug，找到 error
+- 使用 type annotation 分析程式碼
+- 只會在 development 環境 active
+- 不會有任何效能提升
+
+當我們在開發 Typescript code(javascript + type annotation)的時候，經過 Typescript Compiler 編譯，轉譯成 Plain old javascript，brower 在執行這些 javascript，從 brower 端並不會知道我們程式碼是用Ｔ ypescript 編寫
+
+## 實作
+
+```js
+// index.ts
+axios.get(url).then((response) => console.log(response.data))
+```
+
+then run `tsc index.ts`，這會將 ts 檔案編譯成 js 檔，產生`index.js`，接著便可以 run `node index.js`。
+也可以執行`ts-node index.ts`，將兩個指令`tsc index.ts`與`node index.js`合成一個。
+
+接著可以定義一個`interface`，叫`Todo`
+
+```ts
+// index.ts
+interface Todo {
+  id: number
+  title: string
+  completed: boolean
+}
+
+axios.get(url).then((response) => {
+  const todo = response.data as Todo
+
+  // typescript compiler will detect error
+  const ID = todo.ID
+  const title = todo.Title
+  const finished = todo.finished
+
+  console.log(`
+    The Todo with ID: ${ID}
+    Has a title of: ${title}
+    Is it finished? ${finished}
+  `)
+})
+```
+
+fixed to
+
+```ts
+// index.ts
+interface Todo {
+  id: number
+  title: string
+  completed: boolean
+}
+
+axios.get(url).then((response) => {
+  const todo = response.data as Todo
+
+  // typescript compiler will detect error
+  const id = todo.id
+  const title = todo.title
+  const completed = todo.completed
+
+  console.log(`
+    The Todo with ID: ${id}
+    Has a title of: ${title}
+    Is it finished? ${completed}
+  `)
+})
+```
+
+定義 log function
+
+```ts
+// index.ts
+interface Todo {
+  id: number
+  title: string
+  completed: boolean
+}
+
+axios.get(url).then((response) => {
+  const todo = response.data as Todo
+
+  // typescript compiler will detect error
+  const id = todo.id
+  const title = todo.title
+  const completed = todo.completed
+
+  logTodo(id, title, completed)
+})
+
+const logTodo = (id: number, title: string, completed: boolean) => {
+  console.log(`
+    The Todo with ID: ${id}
+    Has a title of: ${title}
+    Is it finished? ${completed}
+  `)
+}
+```

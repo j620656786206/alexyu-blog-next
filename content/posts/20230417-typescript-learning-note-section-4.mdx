@@ -1,0 +1,127 @@
+---
+title: Typescript 學習筆記 - Section 4
+description: 關於Typescript The Complete Developer's Guide的學習筆記, Section 4
+date: 2023-04-17
+slug: typescript-learning-note-section-4
+type: Post
+tags:
+  - typescript
+  - frontend
+---
+
+## Section Overview
+
+這章節主要會介紹 Type Annotation 跟 Type Inference 在 function 上的使用
+
+## Type Annotation around functions
+
+Type Annotation - 我們告訴 Typescript function 的參數 type 是什麼，以及回傳值的 type
+Type Inference - Typescript 主動去判斷回傳值的 type 是什麼
+
+### Examples
+
+```ts
+const add = (a: number, b: number): number => {
+  return a + b
+}
+```
+
+## Type Inference around functions
+
+```ts
+const add = (a: number, b: number): number => {
+  // typescript will throw error
+  return '123123'
+}
+
+const add = (a: number, b: number): number => {
+  // typescript只關心type，並不管functino內的邏輯是否正確
+  return a - b
+}
+```
+
+在任何情況下我們都要 annotate 參數 type 是什麼，以及回傳值的 type 是什麼，原因如下
+
+```ts
+const subtract = (a: number, b: number) => {
+  // typescript 認為這function沒任何回傳值，所以回傳值的type是void，實際上是因為程式碼錯誤漏寫return而已
+  // 所以須加上回傳值的type，讓typescript提示我們哪邊有錯誤
+  a - b
+}
+```
+
+## More Examples
+
+```ts
+function divide(a: number, b: number): number {
+  return a / b
+}
+
+const multiply = function (a: number, b: number): number {
+  return a * b
+}
+```
+
+## Void and Never
+
+```ts
+const logger = (message: string): void => {
+  console.log(message)
+}
+
+const throwError = (message: string): never => {
+  throw new Error(message)
+}
+
+// rewrite
+const throwError = (message: string): string => {
+  if (!message) {
+    throw new Error(message)
+  }
+
+  return message
+}
+```
+
+## Destructuring with Annotations
+
+```ts
+const todaysWeather = {
+  date: new Date(),
+  weather: 'sunny',
+}
+
+const logWeather = ({
+  date,
+  weather,
+}: {
+  date: Date
+  weather: string
+}): void => {
+  console.log(forecast.date)
+  console.log(forecast.weather)
+}
+
+logWeather(todaysWeather)
+```
+
+## Annotations Around Objects
+
+```ts
+const profile = {
+  name: 'alex',
+  age: 20,
+  coords: {
+    lat: 0,
+    lng: 15,
+  },
+  setAge(age: number): void {
+    this.age = age
+  },
+}
+
+const { age, name }: { age: number; name: string } = profile
+const {
+  coords: { lat, lng },
+}: { coords: { lat: number; lng: number } } = profile
+```
