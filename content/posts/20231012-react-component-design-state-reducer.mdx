@@ -1,0 +1,355 @@
+---
+title: React Component Design - State Reducer
+description: React Component Design - State Reducer
+date: 2023-10-12
+slug: react-component-design-state-reducer
+type: Post
+tags:
+  - react
+  - component design
+  - design pattern
+  - state reducer
+---
+
+`Render props`讓使用者可以透過state去控制UI的顯示，
+
+`State Reducer`則是讓使用者控制`action`觸發時的邏輯。
+
+想像今天有需求要讓`Toggle`元件只能被toggle 3次，我們的程式碼該如何修改?
+
+最直覺的做法可能是傳入一個toggle次數限制的props給Toggle，讓Toggle去檢查是否有超過次數
+
+```jsx
+class Toggle extends React.Component {
+  static defaultProps = {
+    onToggle: () => {},
+    onReset: () => {},
+    initialOn: false
+  };
+  // 元件內部多一個 toggleTimes 來控制目前的 toggle 次數
+  initialState = { on: this.props.initialOn, currentToggleTimes: 0 };
+
+  state = this.initialState;
+
+  reset = () =>
+    this.setState(this.initialState, () =>
+      this.props.onReset(this.initialState)
+    );
+
+  toggle = () => {
+    // 每次 toggle 時判斷有沒有超過使用者定義的 toggle 次數上限
+    if (this.state.currentToggleTimes >= this.props.toggleTimes) {
+      console.log('toggle too much')
+      return;
+    }
+    this.setState(
+      ({ on }) => ({
+        on: !on,
+        currentToggleTimes:this.state.currentToggleTimes + 1 }),
+      () => this.props.onToggle(this.state.on),
+    );
+  }
+  // ...other methods
+}
+```
+
+但使用者的需求總是會變動，假如他突然間也想控制 `reset` 的次數怎麼辦? 或者是使用者在點擊`toggle`的時候需要先打api或者根據別的資料跟狀態才能決定最後的`on`狀態，那我們不就改不完了？這時候可以換個角度思考，若能將`Toggle`的狀態往上傳出來給使用它的地方，讓使用它的地方決定`Toggle`最終的狀態，問題是不是就解決了？
+
+# stateReducer
+
+來看看`Toggle`該怎麼被使用的範例
+
+```jsx
+class Usage extends React.Component {
+  static defaultProps = {
+    onToggle: (...args) => console.log('onToggle', ...args),
+    onReset: (...args) => console.log('onReset', ...args),
+  }
+
+  initialState = { timesClicked: 0 }
+
+  state = this.initialState
+
+  handleToggle = (...args) => {
+    this.setState(({ timesClicked }) => ({
+      timesClicked: timesClicked + 1,
+    }))
+    this.props.onToggle(...args)
+  }
+
+  handleReset = (...args) => {
+    this.setState(this.initialState)
+    this.props.onReset(...args)
+  }
+
+  toggleStateReducer = (state, changes) => {
+    if (this.state.timesClicked >= 4) {
+      return {...changes, on: false}
+    }
+
+    return changes
+  }
+
+  render() {
+    const { timesClicked } = this.state
+
+    return (
+      <Toggle
+        stateReducer={this.toggleStateReducer}
+        onToggle={this.handleToggle}
+        onReset={this.handleReset}
+      >
+        {toggle => (
+          <div>
+            <Switch
+              {...toggle.getTogglerProps({
+                on: toggle.on,
+              })}
+            />
+            {timesClicked > 4 ? (
+              <div data-testid="notice">
+                Whoa, you clicked too much!
+                <br />
+              </div>
+            ) : timesClicked > 0 ? (
+              <div data-testid="click-count">
+                Click count: {timesClicked}
+              </div>
+            ) : null}
+            <button onClick={toggle.reset}>Reset</button>
+          </div>
+        )}
+      </Toggle>
+    )
+  }
+}
+```
+
+`Toggle`元件新增了一個props叫`stateReducer`， 第一個參數是Toggle元件目前的state，第二個參數`changes`則是`Toggle`元件在執行`setState`時所接受的變化。
+
+來看看`Toggle`元件的詳細實作
+
+```jsx
+class Toggle extends React.Component {
+  static defaultProps = {
+    initialOn: false,
+    onReset: () => {},
+    stateReducer: (state, changes) => changes,
+  }
+
+  initialState = {on: this.props.initialOn}
+
+  state = this.initialState
+
+  internalSetState(changes, callback) {
+    this.setState(state => {
+      // handle function setState call
+      const changesObject =
+        typeof changes === 'function' ? changes(state) : changes
+
+      // apply state reducer
+      const reducedChanges =
+        this.props.stateReducer(state, changesObject) || {}
+
+      // return null if there are no changes to be made
+      // (to avoid an unecessary rerender)
+      return Object.keys(reducedChanges).length
+        ? reducedChanges
+        : null
+    }, callback)
+  }
+
+  reset = () =>
+    this.internalSetState(this.initialState, () =>
+      this.props.onReset(this.state.on),
+    )
+
+  toggle = () =>
+    this.internalSetState(
+      ({ on }) => ({ on: !on }),
+      () => this.props.onToggle(this.state.on),
+    )
+
+  getTogglerProps = ({ onClick, ...props } = {}) => ({
+    onClick: callAll(onClick, this.toggle),
+    'aria-pressed': this.state.on,
+    ...props,
+  })
+
+  getStateAndHelpers() {
+    return {
+      on: this.state.on,
+      toggle: this.toggle,
+      reset: this.reset,
+      getTogglerProps: this.getTogglerProps,
+    }
+  }
+
+  render() {
+    return this.props.children(this.getStateAndHelpers())
+  }
+}
+```
+
+這邊提供原作者Kent C. Dodds偏好的`internalSetState`另外一種寫法
+
+```jsx
+internalSetState(changes, callback) {
+	this.setState(currentState => {
+		return [changes]
+			.map(c => typeof c === 'function' ? changes(currentState) : c)
+      .map(c => this.props.stateReducer(currentState, c) || {})
+      .map(c => Object.keys(reducedChanges).length ? c : null)[0]
+	})
+}
+```
+
+# With Types
+
+可能會有人疑問這個`reducer`的形狀怎麼跟`[redux](https://redux.js.org/)`的樣子不太一樣，應該要有`type`，`payload`之類的字眼，這邊實作加上`type`，先來看看怎麼使用`Toggle`
+
+```jsx
+class Usage extends React.Component {
+  static defaultProps = {
+    onToggle: (...args) => console.log('onToggle', ...args),
+    onReset: (...args) => console.log('onReset', ...args),
+  }
+
+  initialState = { timesClicked: 0 }
+
+  state = this.initialState
+
+  handleToggle = (...args) => {
+    this.setState(({ timesClicked }) => ({
+      timesClicked: timesClicked + 1,
+    }))
+    this.props.onToggle(...args)
+  }
+
+  handleReset = (...args) => {
+    this.setState(this.initialState)
+    this.props.onReset(...args)
+  }
+
+  toggleStateReducer = (state, changes) => {
+    if (changes.type === 'forced') {
+      return changes
+    }
+    if (this.state.timesClicked >= 4) {
+      return {...changes, on: false}
+    }
+    return changes
+  }
+
+  render() {
+    const { timesClicked } = this.state
+
+    return (
+      <Toggle
+        stateReducer={this.toggleStateReducer}
+        onToggle={this.handleToggle}
+        onReset={this.handleReset}
+        ref={this.props.toggleRef}
+      >
+        {({ on, toggle, reset, getTogglerProps }) => (
+          <div>
+            <Switch
+              {...getTogglerProps({
+                on: on,
+              })}
+            />
+            {timesClicked > 4 ? (
+              <div data-testid="notice">
+                Whoa, you clicked too much!
+                <br />
+                <button onClick={() => toggle({type: 'forced'})}>
+                  Force Toggle
+                </button>
+                <br />
+              </div>
+            ) : timesClicked > 0 ? (
+              <div data-testid="click-count">
+                Click count: {timesClicked}
+              </div>
+            ) : null}
+            <button onClick={reset}>Reset</button>
+          </div>
+        )}
+      </Toggle>
+    )
+  }
+}
+```
+
+`Toggle`元件的實作如下
+
+```jsx
+class Toggle extends React.Component {
+  static defaultProps = {
+    initialOn: false,
+    onReset: () => {},
+    stateReducer: (state, changes) => changes,
+  }
+
+  // 💰 any time I use a string as an identifier for a type,
+  // I prefer to give it a variable name. That way folks who
+  // want to reference the type can do so using variable which
+  // will help mitigate the problems of indirection.
+  static stateChangeTypes = {
+    reset: '__toggle_reset__',
+    toggle: '__toggle_toggle__',
+  }
+
+  initialState = { on: this.props.initialOn }
+
+  state = this.initialState
+
+  internalSetState(changes, callback) {
+    this.setState(state => {
+      // handle function setState call
+      const changesObject =
+        typeof changes === 'function' ? changes(state) : changes
+
+      // apply state reducer
+      const reducedChanges =
+        this.props.stateReducer(state, changesObject) || {}
+
+      // remove the type so it's not set into state
+      const { type: ignoredType, ...onlyChanges } = reducedChanges
+
+      // return null if there are no changes to be made
+      return Object.keys(onlyChanges).length ? onlyChanges : null
+    }, callback)
+  }
+
+  reset = () =>
+    this.internalSetState(
+      {...this.initialState, type: Toggle.stateChangeTypes.reset},
+      () => this.props.onReset(this.state.on),
+    )
+
+  toggle = ({type = Toggle.stateChangeTypes.toggle} = {}) =>
+    this.internalSetState(
+      ({ on }) => ({ type, on: !on }),
+      () => this.props.onToggle(this.state.on),
+    )
+
+  getTogglerProps = ({ onClick, ...props } = {}) => ({
+    onClick: callAll(onClick, () => this.toggle()),
+    'aria-pressed': this.state.on,
+    ...props,
+  })
+
+  getStateAndHelpers() {
+    return {
+      on: this.state.on,
+      toggle: this.toggle,
+      reset: this.reset,
+      getTogglerProps: this.getTogglerProps,
+    }
+  }
+  render() {
+    return this.props.children(this.getStateAndHelpers())
+  }
+}
+```
