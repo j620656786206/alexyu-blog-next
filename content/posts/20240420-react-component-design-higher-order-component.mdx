@@ -1,0 +1,124 @@
+---
+title: React Component Design - Higher-Order Component
+description: React Component Design - Higher-Order Component
+date: 2023-12-13
+slug: react-component-design-provider
+type: Post
+tags:
+  - react
+  - component design
+  - design pattern
+  - higher-order component
+  - hoc
+---
+
+
+# Higher-Order Component
+
+`Higher-Order Component`的簡稱叫`HOC`，設計概念主要是要把一些共用的邏輯抽取出來，讓其他元件透過`HOC`的方式能獲得這些共用邏輯的功能，讓元件的使用方式不一定要侷限在這個`HOC`。
+
+`HOC`的概念很重要的一點是利用`composition`的方式來產生一個新的`component`，而不是直接mutate傳入的`component`。
+
+我們拿之前介紹過的`Provider`來改寫成HOC試試
+
+```jsx
+import React, {Fragment} from 'react'
+// copy static methods
+import hoistNonReactStatics from 'hoist-non-react-statics'
+import { Switch } from '../switch'
+
+const ToggleContext = React.createContext()
+
+class Toggle extends React.Component {
+  static Consumer = ToggleContext.Consumer
+
+  toggle = () =>
+    this.setState(
+      ({ on }) => ({ on: !on }),
+      () => this.props.onToggle(this.state.on),
+    )
+
+  state = { on: false, toggle: this.toggle }
+
+  render() {
+    return (
+      <ToggleContext.Provider value={this.state} {...this.props} />
+    )
+  }
+}
+
+function withToggle(Component) {
+  function Wrapper(props, ref) {
+    return (
+      <Toggle.Consumer>
+        {toggleContext => (
+          <Component toggle={toggleContext} {...props} ref={ref} />
+        )}
+      </Toggle.Consumer>
+    )
+  }
+
+  Wrapper.displayName = `withToggle(${Component.displayName ||
+    Component.name})`
+
+  return hoistNonReactStatics(React.forwardRef(Wrapper), Component)
+}
+
+const Layer1 = () => <Layer2 />
+const Layer2 = withToggle(({ toggle: { on }}) => (
+  <Fragment>
+    {on ? 'The button is on' : 'The button is off'}
+    <Layer3 />
+  </Fragment>
+))
+const Layer3 = () => <Layer4 />
+const Layer4 = withToggle(({ toggle: { on, toggle }}) => (
+  <Switch on={on} onClick={toggle} />
+))
+
+function Usage({
+  onToggle = (...args) => console.log('onToggle', ...args),
+}) {
+  return (
+    <Toggle onToggle={onToggle}>
+      <Layer1 />
+    </Toggle>
+  )
+}
+```
+
+讓我們來看看`HOC`幾個要注意的地方
+
+- `displayName`需要設定
+- 傳入的`component`的`static methods`需要copy到`HOC`裡面新的`component`，所以一般會透過`hoist-non-react-statics`複製`static methods`到新的`component`
+- 如果有希望使用`ref`，需要透過`React.forwardRef`的方式轉換
+
+從上面幾點不難看出`HOC`有滿多的缺點，而且在現在**React 18**的環境中，其實已經有一些方式可以替代`HOC`，比如之前介紹過的`Render Props`pattern，或者是`hook`的方式。
+
+讓我們先把上面的例子改寫成`Render Props`的形式來看看
+
+```jsx
+class ToggleWrapper extends React.Component {
+  render() {
+		return (
+      <Toggle.Consumer>
+        {toggleContext => (
+					this.childen({ toggle: toggleContext })
+        )}
+      </Toggle.Consumer>
+    )
+  }
+}
+```
+
+`Render Props`這樣的方式看起來差別不大，但優點其實很多
+
+- `children`不受限制
+- 純粹是一個`React Component`，讓`React tree`乾淨
+- 可以寫`Prop Types`檢驗`props`了！
+- `static methods`跟`ref`的問題都同時解決了
+- `props`不用spred
+
+## Reference
+
+- [https://gist.github.com/heygrady/f9bf3b6dd93fe3d87ba87430fd3c20d5](https://gist.github.com/heygrady/f9bf3b6dd93fe3d87ba87430fd3c20d5)
