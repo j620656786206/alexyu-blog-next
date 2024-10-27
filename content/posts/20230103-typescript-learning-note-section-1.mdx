@@ -14,7 +14,6 @@ tags:
 
 這一系列筆記將會記錄一些我在上課時覺得是重點的地方，過於簡單的就不贅述。
 
-
 ## Typescript Overview
 
 ### What is Typescript
@@ -32,7 +31,7 @@ Typescript 其實就只是 javascript + a type system，在寫 Typescript 的時
 
 ```js
 // index.ts
-axios.get(url).then((response) => console.log(response.data))
+axios.get(url).then((response) => console.log(response.data));
 ```
 
 then run `tsc index.ts`，這會將 ts 檔案編譯成 js 檔，產生`index.js`，接著便可以 run `node index.js`。
@@ -43,25 +42,25 @@ then run `tsc index.ts`，這會將 ts 檔案編譯成 js 檔，產生`index.js`
 ```ts
 // index.ts
 interface Todo {
-  id: number
-  title: string
-  completed: boolean
+  id: number;
+  title: string;
+  completed: boolean;
 }
 
 axios.get(url).then((response) => {
-  const todo = response.data as Todo
+  const todo = response.data as Todo;
 
   // typescript compiler will detect error
-  const ID = todo.ID
-  const title = todo.Title
-  const finished = todo.finished
+  const ID = todo.ID;
+  const title = todo.Title;
+  const finished = todo.finished;
 
   console.log(`
     The Todo with ID: ${ID}
     Has a title of: ${title}
     Is it finished? ${finished}
-  `)
-})
+  `);
+});
 ```
 
 fixed to
@@ -69,25 +68,25 @@ fixed to
 ```ts
 // index.ts
 interface Todo {
-  id: number
-  title: string
-  completed: boolean
+  id: number;
+  title: string;
+  completed: boolean;
 }
 
 axios.get(url).then((response) => {
-  const todo = response.data as Todo
+  const todo = response.data as Todo;
 
   // typescript compiler will detect error
-  const id = todo.id
-  const title = todo.title
-  const completed = todo.completed
+  const id = todo.id;
+  const title = todo.title;
+  const completed = todo.completed;
 
   console.log(`
     The Todo with ID: ${id}
     Has a title of: ${title}
     Is it finished? ${completed}
-  `)
-})
+  `);
+});
 ```
 
 定義 log function
@@ -95,27 +94,27 @@ axios.get(url).then((response) => {
 ```ts
 // index.ts
 interface Todo {
-  id: number
-  title: string
-  completed: boolean
+  id: number;
+  title: string;
+  completed: boolean;
 }
 
 axios.get(url).then((response) => {
-  const todo = response.data as Todo
+  const todo = response.data as Todo;
 
   // typescript compiler will detect error
-  const id = todo.id
-  const title = todo.title
-  const completed = todo.completed
+  const id = todo.id;
+  const title = todo.title;
+  const completed = todo.completed;
 
-  logTodo(id, title, completed)
-})
+  logTodo(id, title, completed);
+});
 
 const logTodo = (id: number, title: string, completed: boolean) => {
   console.log(`
     The Todo with ID: ${id}
     Has a title of: ${title}
     Is it finished? ${completed}
-  `)
-}
+  `);
+};
 ```

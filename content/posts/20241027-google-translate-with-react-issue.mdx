@@ -10,19 +10,17 @@ tags:
   - virtural dom
 ---
 
-# 前言
-
 前陣子有使用者回報公司的網站在操作後會整個白畫面，還好我們的 app 有設置 Sentry 的[Session replay](https://docs.sentry.io/product/explore/session-replay/web/)，
 便透過這功能看看使用者是做了什麼異常操作。後來經過排查才發現原來是 Google Translate 跟 React 的問題。
 
-# 原因
+## 原因
 
 在追查這問題以前，本以為 Goole Translate 只是打 api 拿到目標語系的文字後，替換掉 DOM 上面的文字而已，結果發現不是如此，
 Goole Translate 做的不只是替換掉文字，還改變了 DOM 上面的文字節點，而 React 是使用 Virtual DOM ，
 導致 React 在比對 Virtual DOM 跟真實的 DOM 時產生了不匹配的問題 (這邊不細講 React Virtual DOM 跟 Fiber，有興趣的人可以[參閱](https://legacy.reactjs.org/docs/faq-internals.html))。
 我去查 React 的 github issue 時竟發現這問題其實早在 2017 年就有人提出，只是一直沒有一個可以根本解決問題的解法。
 
-# 解法
+## 解法
 
 1. [禁止頁面上使用 Google Translate](https://github.com/facebook/react/issues/11538#issuecomment-350110297)，
    原因是因為我們的網站本身就有提供 i18n，所以使用者應該透過我們 app 的 i18n 去轉換語系。
@@ -32,13 +30,13 @@ Goole Translate 做的不只是替換掉文字，還改變了 DOM 上面的文�
    但要一次修改全部專案的條件式 render 的寫法是一件滿困難的事情，還好有網友提供 eslint 的套件，[eslint-plugin-react-google-Translate](https://github.com/getcouped/eslint-plugin-react-google-Translate)，
    透過這個 eslint 的幫助，可以讓我們在開發時透過這個 eslint 改掉不好的寫法。以後如果公司的網站有決定要支援 Google Translate 時，可以透過 eslint 的方式排查出所有需要修改的地方。
 
-# 後續
+## 後續
 
 其實不只是 Google Translate，只要瀏覽器的第三方擴充功能有修改到 DOM 的結構，其實都有可能會導致 React app crash。
 如果要禁止第三方擴充功能在我們的 app 裡使用的話，可以考慮用[MutationObserver](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver)。
 概念是偵測 DOM 有改變時跳出彈窗提示使用者，但這概念會遇到的問題是如果是 app 內部本身 mutate DOM 的話，應該還是要受到允許，因為像是現在 ui 套件的`Tooltip`元件其實一開始不在 DOM 結構裡，當滑鼠移到目標地方時，ui 套件的`Tooltip`才會顯示在 DOM 結構裡，因此要如何區分 app 內部的 DOM 操作跟 app 外部的 DOM 操作也是個需要研究的問題。
 
-# Referenece
+## Referenece
 
 - [https://github.com/facebook/react/issues/11538](https://github.com/facebook/react/issues/11538)
 - [https://martijnhols.nl/gists/everything-about-google-Translate-crashing-react](https://martijnhols.nl/gists/everything-about-google-Translate-crashing-react)

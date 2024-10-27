@@ -11,23 +11,21 @@ tags:
   - state initializers
 ---
 
-延續`Toggle`的例子，有些時候我們希望將元件的state還原回初始state，與其用setState將`on`的狀態設成false，到不如利用下列的技巧
+延續`Toggle`的例子，有些時候我們希望將元件的 state 還原回初始 state，與其用 setState 將`on`的狀態設成 false，到不如利用下列的技巧
 
 ```jsx
 class Toggle extends React.Component {
   static defaultProps = {
     initialOn: false,
     onReset: () => {},
-  }
+  };
 
-  initialState = { on: this.props.initialOn }
+  initialState = { on: this.props.initialOn };
 
-  state = this.initialState
+  state = this.initialState;
 
   reset = () =>
-    this.setState(this.initialState, () =>
-      this.props.onReset(this.state.on),
-    )
+    this.setState(this.initialState, () => this.props.onReset(this.state.on));
 
   getStateAndHelpers() {
     return {
@@ -35,7 +33,7 @@ class Toggle extends React.Component {
       toggle: this.toggle,
       reset: this.reset,
       getTogglerProps: this.getTogglerProps,
-    }
+    };
   }
   // same as before
 }
@@ -46,19 +44,15 @@ function Usage({
   onReset = (...args) => console.log('onReset', ...args),
 }) {
   return (
-    <Toggle
-      initialOn={initialOn}
-      onToggle={onToggle}
-      onReset={onReset}
-    >
+    <Toggle initialOn={initialOn} onToggle={onToggle} onReset={onReset}>
       {({ getTogglerProps, on, reset }) => (
         <div>
-          <Switch {...getTogglerProps({on})} />
+          <Switch {...getTogglerProps({ on })} />
           <hr />
           <button onClick={() => reset()}>Reset</button>
         </div>
       )}
     </Toggle>
-  )
+  );
 }
 ```
