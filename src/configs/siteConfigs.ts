@@ -1,20 +1,19 @@
-const fqdn = 'https://nextjs-tailwind-contentlayer-blog-starter.vercel.app';
+const fqdn = 'https://alexyu-blog.com/';
 const logoPath = '/logo.png';
-const bannerPath = '/og-image.png';
+const bannerPath = '/blog-banner.png';
 
 export const siteConfigs = {
-  title: 'Next.js Tailwind Contentlayer Blog Starter',
+  title: 'Alex Yu Blog',
   titleShort: 'Next Blog',
   description:
-    'Blog starter template with modern frontend technologies like Next.js, Tailwind CSS, Contentlayer, i18Next',
-  author: 'Tony Stark',
-  credit: 'Stark Industries',
-  email: 'stark@example.com',
+    'Blog with modern frontend technologies like React, Tailwind CSS, Micro Frontend, Monorepo',
+  author: 'Alex Yu',
+  credit: 'Alex Yu',
+  email: 'cw.yu.alex@gmail.com',
   fqdn: fqdn,
   logoPath: logoPath,
   logoUrl: fqdn + logoPath,
   bannerPath: bannerPath,
   bannerUrl: fqdn + bannerPath,
-  twitterID: '@EasonChang_me',
-  datePublished: '2022-09-01',
+  datePublished: '2023-01-03',
 };

@@ -52,11 +52,6 @@ function MyApp({ Component, pageProps }: AppProps) {
             site_name: siteConfigs.title,
             type: 'website',
           }}
-          twitter={{
-            handle: siteConfigs.twitterID,
-            site: siteConfigs.twitterID,
-            cardType: 'summary_large_image',
-          }}
           additionalMetaTags={[
             {
               name: 'viewport',

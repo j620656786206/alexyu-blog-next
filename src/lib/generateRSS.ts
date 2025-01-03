@@ -19,7 +19,7 @@ export default function generateRSS() {
     link: siteConfigs.fqdn,
     image: siteConfigs.logoUrl,
     favicon: siteConfigs.logoUrl,
-    copyright: `Copyright © 2015 - ${new Date().getFullYear()} ${
+    copyright: `Copyright © 2023 - ${new Date().getFullYear()} ${
       siteConfigs.credit
     }`,
     feedLinks: {
