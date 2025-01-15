@@ -3,6 +3,7 @@ import Tag from '@/components/Tag';
 import siteMetadata from '@/data/siteMetadata';
 import { formatDate } from 'pliny/utils/formatDate';
 import NewsletterForm from 'pliny/ui/NewsletterForm';
+import CoffeeWidget from '@/components/CoffeeWidget';
 
 const MAX_DISPLAY = 5;
 
@@ -72,6 +73,9 @@ export default function Home({ posts }) {
           })}
         </ul>
       </div>
+
+      <CoffeeWidget />
+
       {posts.length > MAX_DISPLAY && (
         <div className="flex justify-end text-base font-medium leading-6">
           <Link
