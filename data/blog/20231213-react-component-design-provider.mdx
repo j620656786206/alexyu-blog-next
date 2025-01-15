@@ -1,0 +1,226 @@
+---
+title: React Component Design - Provider
+description: React Component Design - Provider
+date: '2023-12-13'
+slug: react-component-design-provider
+tags: ['react', 'component design', 'design pattern', 'provider']
+---
+
+`Provider`主要是為了解決`Props drilling`的問題，`Props drilling`指的是`props`要傳好幾層往下到想要存取這個`props`的 component，例如
+
+```jsx
+class Toggle extends React.Component {
+  state = { on: false };
+  toggle = () => {
+    /*...*/
+  };
+  render() {
+    return this.props.children({ ...this.state, toggle: this.toggle });
+  }
+}
+
+const Layer1 = ({ toggle, ...props }) => <Layer2 toggle={toggle} />;
+const Layer2 = ({ toggle, ...props }) => <Layer3 toggle={toggle} />;
+const Layer3 = ({ toggle, ...props }) => <button onClick={toggle} />;
+
+class App extends React.Component {
+  handleToggle = () => {};
+
+  render() {
+    return (
+      <Toggle onToggle={this.handleToggle}>
+        <Layer1 />
+      </Toggle>
+    );
+  }
+}
+```
+
+而`React`的`Provider/Context` API 能解決這個問題，讓`props`中間不用傳遞這麼多層，只要使用`Consumer`就可以存取`Provider`裡面的`value`，來看看實際例子
+
+```jsx
+import React, { Fragment } from 'react';
+import { Switch } from '../switch';
+
+const ToggleContext = React.createContext();
+
+class Toggle extends React.Component {
+  static Consumer = ToggleContext.Consumer;
+
+  state = { on: false };
+
+  toggle = () =>
+    this.setState(
+      ({ on }) => ({ on: !on }),
+      () => this.props.onToggle(this.state.on)
+    );
+
+  render() {
+    return (
+      <ToggleContext.Provider
+        value={{ on: this.state.on, toggle: this.toggle }}
+        {...this.props}
+      />
+    );
+  }
+}
+
+const Layer1 = () => <Layer2 />;
+const Layer2 = () => (
+  <Toggle.Consumer>
+    {({ on }) => (
+      <Fragment>
+        {on ? 'The button is on' : 'The button is off'}
+        <Layer3 />
+      </Fragment>
+    )}
+  </Toggle.Consumer>
+);
+const Layer3 = () => <Layer4 />;
+const Layer4 = () => (
+  <Toggle.Consumer>
+    {({ on, toggle }) => <Switch on={on} onClick={toggle} />}
+  </Toggle.Consumer>
+);
+
+function Usage({ onToggle = (...args) => console.log('onToggle', ...args) }) {
+  return (
+    <Toggle onToggle={onToggle}>
+      <Layer1 />
+    </Toggle>
+  );
+}
+```
+
+## 驗證 Consumer
+
+上面的例子是最簡易版的`Provider`，但這邊的`Consumer`要在`Provider`底下使用才會正常，如果我們希望`Consumer`不是在`Provider`底下使用時就噴`error`，可以改寫成下面的方式
+
+```jsx
+import React, { Fragment } from 'react';
+import { Switch } from '../switch';
+
+const ToggleContext = React.createContext();
+
+function ToggleConsumer(props) {
+  return (
+    <ToggleContext.Consumer {...props}>
+      {(context) => {
+        if (!context) {
+          throw new Error(
+            `Toggle.Consumer cannot be rendered outside the Toggle component`
+          );
+        }
+        return props.children(context);
+      }}
+    </ToggleContext.Consumer>
+  );
+}
+
+class Toggle extends React.Component {
+  static Consumer = ToggleConsumer;
+
+  // same as before
+}
+```
+
+## 避免不必要的 re-render
+
+在`Provider`的`value`中除了會因`state` 改變而 re-render 以外，`toggle`也會在每次 re-render 時產生一個新的實例，如果我們要避免不必要的 re-render，可以用下面的技巧
+
+```jsx
+class Toggle extends React.Component {
+  static Consumer = ToggleConsumer;
+
+  toggle = () =>
+    this.setState(
+      ({ on }) => ({ on: !on }),
+      () => this.props.onToggle(this.state.on)
+    );
+
+  state = { on: false, toggle: this.toggle };
+
+  render() {
+    return <ToggleContext.Provider value={this.state} {...this.props} />;
+  }
+}
+```
+
+## 支援 Render Props
+
+在某些情況我們可能會希望`Provider`支援`Render Props`的作法，讓上層決定要做客製化的 ui 顯示
+
+```jsx
+class Toggle extends React.Component {
+  // same as before
+
+  render() {
+    const { children, ...rest } = this.props
+    const ui =
+      typeof children === 'function' ? children(this.state) : children
+
+    return (
+      <ToggleContext.Provider value={this.state} {...rest}>
+        {ui}
+      </ToggleContext.Provider>
+    )
+  }
+}
+
+function Usage({
+  onToggle = (...args) => console.log('onToggle', ...args),
+}) {
+  return (
+    <Toggle onToggle={onToggle}>
+		{({ on }) => (
+			on ? <Layer1 /> : <OtherLayer>
+		)}
+    </Toggle>
+  )
+}
+```
+
+## 支援 Compound Component
+
+如果我們希望`Toggle`保留一定的介面供外部使用，並且用`Compound Component`的形式將一些特定的 component export 出去給外部使用，可以參考下面例子
+
+```jsx
+class Toggle extends React.Component {
+  static Consumer = ToggleConsumer;
+
+  static On = ({ children }) => (
+    <ToggleConsumer>{({ on }) => (on ? children : null)}</ToggleConsumer>
+  );
+
+  static Off = ({ children }) => (
+    <ToggleConsumer>{({ on }) => (on ? null : children)}</ToggleConsumer>
+  );
+
+  static Button = (props) => (
+    <ToggleConsumer>
+      {({ on, toggle }) => <Switch on={on} onClick={toggle} {...props} />}
+    </ToggleConsumer>
+  );
+
+  // same as before
+}
+
+const Layer1 = () => <Layer2 />;
+const Layer2 = () => (
+  <Fragment>
+    <Toggle.On>The button is on</Toggle.On>
+    <Toggle.Off>The button is off</Toggle.Off>
+    <Layer3 />
+  </Fragment>
+);
+const Layer3 = () => <Layer4 />;
+const Layer4 = () => <Toggle.Button />;
+
+function Usage({ onToggle = (...args) => console.log('onToggle', ...args) }) {
+  return (
+    <Toggle onToggle={onToggle}>
+      <Layer1 />
+    </Toggle>
+  );
+}
+```

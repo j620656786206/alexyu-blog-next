@@ -1,0 +1,30 @@
+---
+title: Typescript 學習筆記 - Section 2
+description: 關於Typescript The Complete Developer's Guide的學習筆記, Section 2
+date: '2023-02-01'
+slug: typescript-learning-note-section-2
+tags: ['typescript', 'frontend']
+---
+
+## Course Overview
+
+整堂課程的前半段會著重在 typescript 的語法 syntax 跟 feature 介紹，後面才會介紹如何使用 typescript，並且應用在 design pattern
+
+## Types
+
+### Plain Definition + Overview
+
+這邊作者給出的定義是
+
+> Easy way to refer to the different properties + function that a value has
+
+value 可以是 string, object, array, etc..., 比如說"red", 他的 type 屬於 string, 所以他會有 string 的 prototype 所有的 function 可以使用, 比如`includes()`, `charAt()`, `indexOf()`, etc..., 當我們說一個值的 type 是 string 的時候, 很自然的便知道這個值有屬於 string proptype 的 function 可以使用。舉一反三, 假設我們定義好了一個 type `Todo`, 與其在程式碼裡面說某個值有`Todo`的 function, properties, 倒不如簡稱說這個值的 type 是`Todo`就好
+
+### Why do we care?
+
+- 有了定義好的 type，當我們在寫程式碼時如果呼叫了不屬於這個 type 的 function 或者 properties 的時候，Typescript compiler 可以幫我們找出這種錯誤
+- 定義 value 的 type 可以幫助其他工程師了解整個資料的 flow 與 codebase
+
+### When to use this?
+
+答案是 everywhere😂

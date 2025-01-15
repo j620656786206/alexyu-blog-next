@@ -1,0 +1,140 @@
+---
+title: Typescript 學習筆記 - Section 3
+description: 關於Typescript The Complete Developer's Guide的學習筆記, Section 3
+date: '2023-03-14'
+slug: typescript-learning-note-section-3
+tags: ['typescript','frontend']
+---
+
+## Section Overview
+
+這章節主要會介紹 Type Annotation 跟 Type Inference
+
+## Type Annotation and inference
+
+### Plain Definition + Overview
+
+Type Annotation - 指的是我們告訴 Typescript 我們宣告的變數 type 是什麼
+Type Inference - Typescript 主動去判斷變數的 type 是什麼
+
+### Examples
+
+```ts
+// apple's type is number
+const apple: number = 5;
+
+// typescript will throw error
+let apple: number = 5;
+apple = 'asdfdsfds';
+
+let speed: string = 'fast';
+let hasName: boolean = true;
+
+let nothingMuch: null = null;
+let nothing: undefined = undefined;
+
+// build in object
+let now: Date = new Date();
+
+// object literal annotations
+let colors: string[] = ['red', 'green', 'blue'];
+let myNubmers: number[] = [1, 2, 3];
+let truths: boolean[] = [true, true, false];
+
+// Classes
+class Car {}
+
+const car: Car = new Car();
+
+// object literal
+let point: { x: number; y: number } = {
+  x: 10,
+  y: 20,
+};
+
+// Function
+const logNumber: (i: number) => void = (i: number) => {
+  console.log(i);
+};
+
+// type annotation
+// typescript will determine apple's type should be number
+let apple = 5;
+```
+
+```js
+// const color is variable declaration
+// 'red' is variable Initialization
+const color = 'red';
+```
+
+如果宣告變數(declaration)以及初始化(initialization)都是在同一行程式碼，Typescript 會自動判別 color 的 tpye 應該要是什麼，
+所以在一般情況下我們可以使用 type inference 在任何地方，Type annotations 只會用在三種情境
+
+- 當我們宣告變數跟初始化變數不在同一行程式碼
+- 當我們宣告的變數沒辦法被 inferred
+- 當 function 回傳'any' type，並且我們需要明確定義 type
+
+#### The 'Any' Type
+
+```js
+// When to use annotations
+// 1) Functions that return the 'any' type
+const json = '{"x": 10, "y": 20}';
+const coordinates = JSON.parse(json);
+console.log(coordinates); // {x: 10, y: 20}
+
+// Typescript will not recognize the error
+coordinates.dfgfdsgdfg;
+```
+
+因為 JSON.parse 會回傳的 type 可能是 number, string, object, etc..., 所以 JSON.pars 回傳的 type 是 any
+any 在 Typescript 也是一種型別，Typescript 並沒有辦法去檢查正確的 property references
+在任何情況下應該避免使用'any'
+
+```js
+// fix the any type
+const json = '{"x": 10, "y": 20}';
+const coordinates: { x: number, y: number } = JSON.parse(json);
+console.log(coordinates); // {x: 10, y: 20}
+
+// Typescript will throw the error
+coordinates.dfgfdsgdfg;
+```
+
+#### Delayed Initialization
+
+```js
+// 2) When we declare a variable on one line
+// and initializate it later
+let words = ['red', 'green', 'blue'];
+// change to foundWord: boolean
+let foundWord;
+
+for (let i = 0; i < words.length; i++) {
+  if (word[i] === 'green') {
+    foundWord = true;
+  }
+}
+```
+
+#### When Inference Doesn't Work
+
+```js
+// 3) Variable whose type cannot be inferred correctly
+let numbers = [-10, -1, 12];
+let numberAboveZero = false;
+
+for (let i = 0; i < numbers.length; i++) {
+  if (number[i] > 0) {
+    // typescript will throw error
+    numberAboveZero = numbers[i];
+  }
+}
+```
+
+這邊可以修正為
+
+```js
+let numberAboveZero: boolean | number = false;
+```
