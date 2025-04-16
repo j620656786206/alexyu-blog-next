@@ -1,0 +1,971 @@
+---
+title: 將公司專案轉換成 Monorepo 遇到的那些事 - 第七篇 如何優化 Monorepo 的測試流程
+description: 深入探討如何有效管理和優化 Monorepo 中的單元測試、整合測試和端到端測試，並介紹 Nx 提供的測試工具與最佳實務，提升團隊開發效率的完整指南。
+date: '2025-04-16'
+slug: monorepo-testing-optimization-guide
+images: ['/static/images/static/images/pyramid-of-testing.webp']
+tags:
+  [
+    'monorepo',
+    'nx',
+    '測試策略',
+    '單元測試',
+    '整合測試',
+    '端到端測試',
+    '測試自動化',
+    '增量測試',
+    'CI/CD整合',
+    '快取機制',
+    '前端工程',
+    '技術實務',
+  ]
+---
+
+![Pyramid of Testing](/static/images/pyramid-of-testing.webp)
+
+# 第七篇 如何優化 Monorepo 的測試流程
+
+## 前言：測試在 Monorepo 中的重要性與挑戰
+
+在前面的系列文章中，我們探討了 Monorepo 的概念、轉移策略、Nx 的 Library 管理、解決循環依賴問題以及版本控制方法。這些都是建置穩固 Monorepo 架構的基礎，而今天我們要討論的測試流程則是確保這個基礎穩定可靠的關鍵。  
+在傳統的多儲存庫（Polyrepo）架構中，每個專案都有自己獨立的測試流程，團隊可以相對容易地管理和執行測試。然而，當我們將多個專案整合到一個 Monorepo 中時，測試策略和流程也需要相應調整，以因應以下挑戰：  
+1.**測試規模擴大**：Monorepo 集合了多個專案，測試數量呈倍數增長，如果不優化測試流程，可能導致執行時間過長。  
+2.**複雜的依賴關係**：專案間的互相依賴使得變更影響範圍更廣，需要智能地決定哪些測試需要執行。  
+3.**測試環境一致性**：如何確保不同專案的測試在相同環境下執行，以獲得一致的結果。  
+4.**測試策略統一**：如何在保持各專案特性的同時，建立統一的測試標準和最佳實務。  
+5.**CI/CD 整合**：如何有效地將測試整合到 CI/CD 流程中，加速開發和部署。  
+這篇文章將從實際經驗出發，分享我們在將公司專案從 Polyrepo (git submodule) 轉換到 Monorepo 過程中，如何重構和優化測試流程，以提升整體開發效率和程式碼品質。
+
+## 1. Monorepo 測試策略的重新思考
+
+### 1.1 測試金字塔在 Monorepo 中的應用
+
+測試金字塔是一個經典的測試策略模型，從底部到頂部分別是：單元測試、整合測試和端到端測試。在 Monorepo 環境中，這個模型依然適用，但需要一些調整：
+
+### 單元測試 (Unit Tests)
+
+在 Monorepo 中，單元測試應該集中在各個函式庫（Library）的層級，確保每個小型功能單元的正確性。我們發現以下幾點特別重要：  
+-**粒度適中**：測試不應該太過細碎或過於宏大，應該對應於程式碼的最小可測試單元。  
+-**獨立性**：單元測試應該能夠獨立執行，不依賴外部服務或其他函式庫。  
+-**快速執行**：單元測試應該能夠在毫秒級別完成，以支持頻繁執行。
+
+```ts
+// 一個良好的單元測試示例 - src/libs/shared-utils/src/lib/string-utils.spec.ts
+import { camelToKebabCase } from './string-utils';
+
+describe('String Utils', () => {
+  describe('camelToKebabCase', () => {
+    it('should convert camelCase to kebab-case', () => {
+      expect(camelToKebabCase('helloWorld')).toBe('hello-world');
+    });
+
+    it('should handle empty string', () => {
+      expect(camelToKebabCase('')).toBe('');
+    });
+
+    it('should handle single word', () => {
+      expect(camelToKebabCase('hello')).toBe('hello');
+    });
+  });
+});
+```
+
+### 整合測試 (Integration Tests)
+
+整合測試在 Monorepo 中變得更為重要，因為我們需要確保不同函式庫之間能夠正確協作。在我們的實務中，整合測試主要關注：  
+-**跨函式庫功能**：測試多個函式庫如何一起工作。  
+-**API 契約**：確保函式庫之間的介面保持一致。  
+-**依賴管理**：驗證函式庫之間的依賴關係是否正確設定。
+
+```ts
+// 一個整合測試示例 - 測試 auth-service 和 user-service 之間的互動
+import { AuthService } from '@myorg/auth-service';
+import { UserService } from '@myorg/user-service';
+
+describe('Auth and User Service Integration', () => {
+  let authService: AuthService;
+  let userService: UserService;
+
+  beforeEach(() => {
+    // **初始化服務**
+    authService = new AuthService();
+    userService = new UserService(authService);
+  });
+
+  it('should authenticate user and retrieve profile', async () => {
+    // 這個測試驗證多個服務之間的互動
+    await authService.login('user@example.com', 'password');
+    const profile = await userService.getUserProfile();
+
+    expect(profile).not.toBeNull();
+    expect(profile.email).toBe('user@example.com');
+  });
+});
+```
+
+### 端到端測試 (E2E Tests)
+
+端到端測試在 Monorepo 中變得更加複雜，因為它需要在完整的系統環境中執行。我們的策略是：  
+-**選擇性測試**：並非所有功能都需要端到端測試，只對關鍵業務流程進行測試。  
+-**環境隔離**：確保端到端測試在隔離的環境中執行，避免干擾其他測試。  
+-**平行執行**：善用 Nx 和 Cypress 的能力，實作平行測試以節省時間。
+
+```ts
+// 一個端到端測試示例 - 使用 Cypress 測試使用者登入流程
+// cypress/e2e/auth/login.cy.ts
+describe('Login Flow', () => {
+  beforeEach(() => {
+    cy.visit('/login');
+  });
+
+  it('should login successfully with valid credentials', () => {
+    cy.get('[data-testid=email-input]').type('user@example.com');
+    cy.get('[data-testid=password-input]').type('password123');
+    cy.get('[data-testid=login-button]').click();
+
+    // 驗證登入成功，進入儀表板
+    cy.url().should('include', '/dashboard');
+    cy.get('[data-testid=user-welcome]').should('contain', 'Welcome');
+  });
+
+  it('should show error message with invalid credentials', () => {
+    cy.get('[data-testid=email-input]').type('wrong@example.com');
+    cy.get('[data-testid=password-input]').type('wrongpass');
+    cy.get('[data-testid=login-button]').click();
+
+    // 驗證錯誤訊息顯示
+    cy.get('[data-testid=error-message]').should('be.visible');
+  });
+});
+```
+
+### 1.2 調整測試策略與 Monorepo 架構對齊
+
+在轉移到 Monorepo 後，我們調整了測試策略，使其更好地與 Monorepo 的架構對齊：
+
+### 函式庫分類與測試對應關係
+
+根據我們在第三篇文章中討論的 Nx Library 類型，我們為不同類型的函式庫設計了對應的測試策略：  
+**1. 工具函式庫 (Utility Libraries)**
+
+- 主要依靠**單元測試**確保功能正確
+- 測試覆蓋率要求高（我們的目標是 95% 以上）
+- 測試應該完全獨立，不依賴其他函式庫
+
+**2. 資料存取函式庫 (Data Access Libraries)**
+
+- 結合**單元測試**和**整合測試**
+- 使用模擬 (Mock) 和存根 (Stub) 隔離外部相依性
+- 針對複雜的資料流程進行特殊測試
+
+**3. 功能函式庫 (Feature Libraries)**
+
+- 更側重於**整合測試**，確保功能模組內部協作正常
+- 對於重要的業務邏輯進行詳細測試
+- 結合單元測試覆蓋特定組件的行為
+
+**4. UI 函式庫 (UI Libraries)**
+
+- 使用**元件測試**驗證 UI 元件的渲染和基本互動
+- 視覺回歸測試確保 UI 外觀一致性
+- 對於複雜互動可加入整合測試
+
+**5. 應用層 (Applications)**
+
+- 主要使用**端到端測試**驗證整體業務流程
+- 側重於使用者場景和關鍵路徑測試
+- 避免過多測試導致維護成本增加
+
+### 重構範例：從 Polyrepo 到 Monorepo 的測試轉變
+
+在轉移到 Monorepo 之前，我們的測試是分散在各個儲存庫中的，結構大致如下：
+
+```
+repo-admin/
+  ├── tests/
+  │   ├── unit/
+  │   ├── integration/
+  │   └── e2e/
+repo-client/
+  ├── tests/
+  │   ├── unit/
+  │   ├── integration/
+  │   └── e2e/
+repo-shared/
+  └── tests/
+      └── unit/
+
+```
+
+轉移到 Monorepo 後，我們重新組織了測試結構：
+
+```
+monorepo/
+  ├── apps/
+  │   ├── admin/
+  │   │   ├── src/
+  │   │   └── cypress/  # 端到端測試
+  │   └── client/
+  │       ├── src/
+  │       └── cypress/  # 端到端測試
+  └── libs/
+      ├── shared-utils/
+      │   ├── src/
+      │   │   ├── lib/
+      │   │   └── test/ # 單元測試
+      │   └── jest.config.ts
+      ├── ui-components/
+      │   ├── src/
+      │   │   ├── lib/
+      │   │   └── test/ # 元件測試
+      │   └── jest.config.ts
+      └── feature-auth/
+          ├── src/
+          │   ├── lib/
+          │   └── test/ # 整合測試
+          └── jest.config.ts
+
+```
+
+這種結構有幾個關鍵優點：
+
+1. 測試與它們測試的程式碼緊密關聯，易於維護
+2. 更清晰的組織結構，遵循 Nx 的最佳實務
+3. 便於使用 Nx 的測試功能，如增量測試和平行執行
+
+## 2. 使用 Nx 增強測試效率
+
+### 2.1 善用 Nx 的增量測試 (Affected Testing)
+
+Nx 的增量測試是 Monorepo 中最強大的功能之一，它允許我們只執行受程式碼變更影響的測試，而不是全量測試。這在大型 Monorepo 中可以節省大量時間。
+
+### 如何實作增量測試
+
+1. 首先，確保你的專案有正確設定依賴關係，Nx 依靠這些關係來確定哪些專案受到變更的影響。
+2. 在本地開發過程中，使用以下指令執行受影響的測試：
+
+```bash
+nx affected:test
+```
+
+這個指令會：
+
+- 分析當前分支與基準分支（通常是 main）之間的程式碼變更
+- 確定哪些專案受到這些變更的影響
+- 只對受影響的專案執行測試
+
+1. 在 CI 環境中，使用基準分支作為比較對象：
+
+```bash
+nx affected:test--base=origin/main --head=HEAD
+```
+
+### 實際案例：重構共享函式庫
+
+在我們的專案中，我們遇到了一個典型場景：需要重構 `shared-utils` 中的日期處理函數，這個函數被多個專案使用。  
+在 Polyrepo 時代，我們需要：
+
+1. 修改共享函數
+2. 更新所有依賴專案
+3. 在每個專案中執行完整測試套件
+
+而在 Monorepo 中，流程變為：
+
+1. 修改共享函數
+2. 執行 `nx affected:test`
+3. Nx 自動識別並測試所有受影響的專案
+
+效率提升是顯著的。在一個有 15 個專案的 Monorepo 中，我們的測試時間從原來的 25 分鐘減少到了只需 8 分鐘。
+
+### 2.2 平行測試執行
+
+除了增量測試外，Nx 還支持平行執行測試，進一步提升測試效率。
+
+### 使用 Nx 平行執行測試
+
+在指令中加入 `--parallel` 參數即可啟用平行執行：
+
+```bash
+nx affected:test--parallel
+```
+
+為了控制平行度，可以設定同時執行的最大任務數：
+
+```bash
+nx affected:test --parallel --maxParallel=5
+```
+
+在我們的 CI 環境中，我們根據建置機器的 CPU 核心數調整這個參數，以獲得最佳效能。
+
+### 針對特定專案類型平行測試
+
+不同類型的專案可能有不同的測試需求，我們可以使用 `--projects` 參數針對特定專案進行測試：
+
+```bash
+# 只測試工具函式庫
+nx test --projects=*util* --parallel
+
+# 只測試 UI 元件
+nx test --projects=*ui* --parallel
+```
+
+### 2.3 測試快取機制
+
+Nx 的快取機制是另一個強大的功能，它可以避免重複執行相同的測試，從而節省時間。
+
+### 本地快取
+
+預設情況下，Nx 會在本地快取測試結果：
+
+```bash
+# 第一次執行測試
+nx test shared-utils  # 可能需要幾秒鐘
+
+# 如果沒有程式碼變更，再次執行相同的測試
+nx test shared-utils  # 幾乎瞬間完成，使用了快取結果
+```
+
+### 遠程快取與 S3
+
+對於團隊協作，我們使用 `@pellegrims/nx-remotecache-s3` 套件來實作遠程快取共享。這個解決方案將在第八篇文章中詳細介紹，它允許團隊成員共享測試結果，大幅減少重複工作：
+
+```bash
+# 開發者 A 執行測試
+nx test shared-utils  # 結果被上傳到 S3 儲存體
+
+# 開發者 B 執行相同的測試
+nx test shared-utils  # 直接從 S3 獲取結果，無需實際執行測試
+```
+
+這種方式在大型團隊協作中特別有價值，可以顯著提升團隊整體的開發效率。
+
+### 快取失效策略
+
+為了確保測試結果的可靠性，我們實施了以下快取失效策略：  
+1.**明確定義輸入**：確保所有測試相關文件都被正確標記為輸入  
+2.**環境變數處理**：識別會影響測試結果的環境變數  
+3.**定期完整測試**：在主分支上定期執行全量測試，避免累積潛在問題
+
+```json
+// project.json 中定義測試的輸入
+{
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "options": {
+        "jestConfig": "libs/shared/util/buildable-utils/jest.config.ts"
+      },
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/jest.preset.js",
+        "{workspaceRoot}/jest.config.ts"
+      ]
+    }
+  }
+}
+```
+
+## 3. 測試類型與框架選擇
+
+在轉移到 Monorepo 的過程中，我們重新評估了各種測試類型和框架，以確保它們適合 Monorepo 環境。
+
+### 3.1 單元測試框架
+
+在 Nx 環境中，Jest 是預設且我們首選的單元測試框架，它與 Nx 有很好的整合。
+
+### Jest 設定優化
+
+我們創建了一個基礎 Jest 設定，所有專案都繼承自這個設定，以確保一致性：
+
+```ts
+// jest.config.base.ts
+import { Config } from 'jest';
+
+const config: Config = {
+  preset: '../../jest.preset.js',
+  transform: {
+    '^.+\\.[tj]sx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
+  },
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  coverageDirectory: '../../coverage/libs/shared-utils',
+  collectCoverageFrom: [
+    'src/lib/**/*.{js,jsx,ts,tsx}',
+    '!src/lib/**/*.d.ts',
+    '!src/lib/**/index.ts',
+    '!**/node_modules/**',
+  ],
+};
+
+export default config;
+```
+
+然後，各個專案可以擴展這個基礎設定：
+
+```ts
+// libs/shared-utils/jest.config.ts
+import baseConfig from '../../jest.config.base';
+
+const config = {
+  ...baseConfig,
+  displayName: 'shared-utils',
+  coverageDirectory: '../../coverage/libs/shared-utils',
+};
+
+export default config;
+```
+
+### 單元測試的最佳實務
+
+我們制定了以下單元測試最佳實務，確保測試高效且可維護：  
+1.**測試文件與被測文件相鄰**：使用 `.spec.ts` 或 `.test.ts` 後綴，將測試放在與被測程式碼相同的目錄中。  
+2.**使用描述性的測試名稱**：測試名稱應該清晰描述測試的功能和預期結果。
+
+```ts
+// Bad
+it('test the login', () => {});
+
+// Good
+it('should reject login with invalid credentials', () => {});
+```
+
+3.**每個測試只測一件事**：每個測試只應驗證一個特定行為。  
+4.**使用 AAA 模式**：安排 (Arrange)、行動 (Act)、斷言 (Assert)。
+
+```ts
+it('should capitalize first letter of each word', () => {
+  // Arrange
+  const input = 'hello world';
+
+  // Act
+  const result = capitalizeWords(input);
+
+  // Assert
+  expect(result).toBe('Hello World');
+});
+```
+
+5.**模擬外部依賴**：使用 Jest 的 mocking 功能隔離測試單元。
+
+```ts
+jest.mock('@myorg/api-client', () => ({
+  ApiClient: {
+    get: jest.fn().mockResolvedValue({ data: 'mocked response' }),
+  },
+}));
+```
+
+### 3.2 元件測試
+
+對於 React 應用，我們使用 React Testing Library 進行元件測試，它專注於測試元件的行為而非實作細節。
+
+### 元件測試設定
+
+```ts
+// 一個元件測試範例
+import { fireEvent, render, screen } from '@testing-library/react'
+
+import { Button } from '../Button'
+
+describe('Button Component', () => {
+  it('should render with provided text', () => {
+    render(<Button>Click me</Button>)
+
+    expect(screen.getByText('Click me')).toBeInTheDocument()
+  })
+
+  it('should call onClick handler when clicked', () => {
+    const handleClick = jest.fn()
+    render(<Button onClick={handleClick}>Click me</Button>)
+
+    fireEvent.click(screen.getByText('Click me'))
+
+    expect(handleClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('should apply disabled style when disabled', () => {
+    render(<Button disabled>Click me</Button>)
+
+    const button = screen.getByText('Click me')
+
+    expect(button).toBeDisabled()
+    expect(button).toHaveClass('btn-disabled') // 假設我們有這樣的樣式
+  })
+})
+```
+
+### 元件測試最佳實務
+
+1.**測試行為而非實作**：關注元件如何與使用者互動，而非內部實作細節。  
+2.**使用資料屬性來查找元素**：使用 `data-testid` 屬性來查找元素，減少對 DOM 結構的依賴。  
+3.**測試無障礙性**：確保元件符合無障礙性標準。  
+4.**模擬上下文和提供者**：為需要上下文的元件提供必要的提供者。
+
+```ts
+// 測試需要上下文的元件
+import { ThemeProvider } from '@myorg/ui-theme'
+import { render, screen } from '@testing-library/react'
+
+import { UserProfile } from './UserProfile'
+
+const renderWithProviders = (ui) => {
+  return render(<ThemeProvider theme='light'>{ui}</ThemeProvider>)
+}
+
+describe('UserProfile', () => {
+  it('should display user information', () => {
+    const user = { name: 'John Doe', email: 'john@example.com' }
+
+    renderWithProviders(<UserProfile user={user} />)
+
+    expect(screen.getByText('John Doe')).toBeInTheDocument()
+    expect(screen.getByText('john@example.com')).toBeInTheDocument()
+  })
+})
+```
+
+### 3.3 端到端測試
+
+Cypress 是我們選擇的端到端測試工具，它與 Nx 有很好的整合，可以輕鬆設定和執行。
+
+### Cypress 設定
+
+Nx 提供了一個簡單的指令來為應用加入 Cypress 測試：
+
+```bash
+nx g @nx/cypress:configuration --project=admin
+```
+
+這會創建如下結構：
+
+```
+apps/admin-e2e/
+  ├── src/
+  │   ├── e2e/
+  │   │   └── app.cy.ts
+  │   ├── fixtures/
+  │   │   └── example.json
+  │   └── support/
+  │       ├── commands.ts
+  │       └── e2e.ts
+  └── cypress.config.ts
+
+```
+
+我們為常見操作加入了自定義指令：
+
+```ts
+// apps/admin-e2e/src/support/commands.ts
+declare global {
+  namespace Cypress {
+    interface Chainable {
+      login(email: string, password: string): Chainable<void>;
+      logout(): Chainable<void>;
+    }
+  }
+}
+
+Cypress.Commands.add('login', (email, password) => {
+  cy.visit('/login');
+  cy.get('[data-testid=email-input]').type(email);
+  cy.get('[data-testid=password-input]').type(password);
+  cy.get('[data-testid=login-button]').click();
+  cy.url().should('include', '/dashboard');
+});
+
+Cypress.Commands.add('logout', () => {
+  cy.get('[data-testid=user-menu]').click();
+  cy.get('[data-testid=logout-button]').click();
+  cy.url().should('include', '/login');
+});
+```
+
+### 端到端測試策略
+
+對於端到端測試，我們採用了"薄端到端測試"策略，只針對關鍵業務流程編寫測試，而不是試圖覆蓋所有可能的使用者互動。這種方法保持了端到端測試的價值，同時控制了維護成本。  
+我們優先測試的流程包括：
+
+- 使用者認證流程
+- 主要業務流程
+- 支付和結算流程
+- 跨應用整合點
+
+```ts
+// 測試關鍵業務流程 - 從訂單創建到結算
+describe('Order Processing Flow', () => {
+  beforeEach(() => {
+    cy.login('admin@example.com', 'password');
+  });
+
+  it('should create and process an order from start to finish', () => {
+    // 創建新訂單
+    cy.visit('/orders/new');
+    cy.get('[data-testid=customer-select]').click();
+    cy.contains('Acme Corp').click();
+    cy.get('[data-testid=product-select]').click();
+    cy.contains('Premium Widget').click();
+    cy.get('[data-testid=quantity-input]').type('5');
+    cy.get('[data-testid=create-order-button]').click();
+
+    // 驗證訂單創建成功
+    cy.url().should('match', /\/orders\/\d+/);
+    cy.get('[data-testid=order-status]').should('contain', 'Pending');
+
+    // 處理訂單
+    cy.get('[data-testid=process-button]').click();
+    cy.get('[data-testid=confirm-dialog]').within(() => {
+      cy.get('[data-testid=confirm-button]').click();
+    });
+
+    // 驗證訂單狀態更新
+    cy.get('[data-testid=order-status]').should('contain', 'Processing');
+
+    // 完成訂單
+    cy.get('[data-testid=complete-button]').click();
+    cy.get('[data-testid=confirm-dialog]').within(() => {
+      cy.get('[data-testid=confirm-button]').click();
+    });
+
+    // 驗證訂單完成
+    cy.get('[data-testid=order-status]').should('contain', 'Completed');
+
+    // 驗證訂單出現在已完成列表中
+    cy.visit('/orders?status=completed');
+    cy.contains('Premium Widget').should('be.visible');
+  });
+});
+```
+
+## 4. 整合測試到 CI/CD 流程
+
+將測試無縫整合到 CI/CD 流程是 Monorepo 測試策略的關鍵部分。
+
+### 4.1 我們的 CI 測試流程
+
+根據我們的 GitHub Actions 工作流文件，我們使用以下方式來執行測試：
+
+```yaml
+# 主要的持續集成工作流
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  github_action:
+    name: Github Action
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout [Pull Request]
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          # 拉取 PR 的實際分支頭部，而不是合併提交
+          ref: ${{ github.event.pull_request.head.sha }}
+          # 拉取所有分支和提交用於 Nx affected 分析
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        name: Checkout [Default Branch]
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          fetch-depth: 0
+
+      # 設定適當的 SHA 用於 nx affected 指令
+      - name: Derive appropriate SHAs for base and head for `nx affected` commands
+        uses: nrwl/nx-set-shas@v4
+
+      # 設定 Node.js 環境
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: './.nvmrc'
+          cache: 'yarn'
+
+      # 安裝依賴
+      - name: Install dependencies
+        run: yarn pre:install
+
+      # 平行執行受影響的測試和其他檢查
+      - name: Run commands in serial
+        run: |
+          yarn affected:lint --parallel=3
+          yarn affected:stylelint --parallel=3
+          yarn nx affected -t test --parallel=3 --configuration=ci --coverageReporters=json,json-summary --coverage
+
+      # 上傳測試覆蓋率報告
+      - name: Uploading artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ./coverage
+```
+
+這裡有幾個重點：  
+1.**受影響範圍測試**：透過 `nx affected` 指令，我們只執行受到程式碼變更影響的測試。  
+2.**平行執行**：使用 `--parallel=3` 參數，我們可以同時執行多個測試任務，加速測試流程。  
+3.**覆蓋率報告**：透過 `--coverage` 和覆蓋率報告器，收集測試覆蓋率信息。
+
+### 4.2 測試覆蓋率處理流程
+
+我們使用單獨的工作流程來處理測試覆蓋率報告：
+
+```yaml
+name: Test Coverage
+
+on:
+  workflow_call:
+
+jobs:
+  test_coverage:
+    name: Runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # 檢查並下載覆蓋率報告
+      - uses: actions/checkout@v4
+
+      - name: Check if coverage report exists
+        uses: LIT-Protocol/artifact-exists-action@v0
+        id: check_coverage
+        with:
+          name: 'coverage-report'
+
+      - name: Download coverage report
+        if: steps.check_coverage.outputs.exists == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: ./coverage
+
+      # 生成覆蓋率摘要
+      - name: Generate coverage summary
+        if: steps.check_coverage.outputs.exists == 'true'
+        id: coverage-summary
+        run: |
+          {
+            echo 'result<<EOF'
+            node ./scripts/generateCoverageSummary.mjs
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      # 加入覆蓋率評論
+      - name: Jest Coverage Comment
+        if: steps.check_coverage.outputs.exists == 'true'
+        uses: MishaKav/jest-coverage-comment@v1.0.23
+        with:
+          title: Jest Coverage Report
+          multiple-files: |
+            ${{ steps.coverage-summary.outputs.result }}
+```
+
+這個工作流程會生成一個可讀性強的測試覆蓋率報告，並作為評論加入到 Pull Request 中，讓團隊成員可以直觀地看到程式碼更改的測試覆蓋情況。
+
+![測試覆蓋率報告範例](/static/images/test-coverage-report.jpeg)
+
+上圖是 Pull Request 階段自動生成的測試覆蓋率報告範例。這種視覺化的覆蓋率報告讓團隊成員可以一目了然地看到各個模組的測試覆蓋情況，包括行數、覆蓋率百分比以及未覆蓋的程式碼區塊。這有助於團隊維持高測試標準，並在程式碼審查過程中識別可能需要額外測試的區域。
+
+## 5. 實戰案例分享：解決真實問題
+
+在從 Polyrepo 轉移到 Monorepo 的過程中，我們遇到了許多測試相關的挑戰，以下是我們解決的一些實際問題。
+
+### 5.1 案例一：測試執行時間過長
+
+### 問題描述
+
+在初始轉移後，我們發現完整的測試套件執行時間從原來的 15 分鐘增加到了 45 分鐘以上。這嚴重影響了開發效率和 CI 流程。
+
+### 解決方案
+
+我們採取了以下措施：  
+1.**使用 Nx 的增量測試**：只對受影響的專案執行測試  
+2.**識別和優化慢速測試**：
+
+- 發現部分測試中使用了真實的 API 而非模擬
+- 有些測試重複設定了相同的測試環境3.**調整測試策略**：
+- 減少端到端測試的數量，更依賴單元測試和整合測試
+
+### 成果
+
+透過以上措施，我們將本地開發中的測試時間減少到原來的 30%，CI 中的測試時間減少了 60%。
+
+### 5.2 案例三：跨函式庫測試難題
+
+### 問題描述
+
+在 Monorepo 中，我們需要測試跨多個函式庫的功能，但傳統的測試方法往往只關注單一函式庫。
+
+### 解決方案
+
+1.**建立專門的整合測試專案**：
+
+- 創建專門的整合測試專案，專注於測試函式庫之間的互動
+- 使用 Nx 的工作空間設定，確保正確的依賴關係
+
+```bash
+nx g @nx/workspace:lib integration-tests
+```
+
+2.**使用合成測試**：
+
+- 設計測試場景，模擬真實使用者如何跨函式庫使用功能
+- 測試不同函式庫之間的集成點
+
+```ts
+// libs/integration-tests/src/lib/auth-with-user-profile.spec.ts
+import { AuthService } from '@myorg/auth';
+import { NavigationService } from '@myorg/navigation';
+import { UserProfileService } from '@myorg/user-profile';
+
+describe('Auth with User Profile Integration', () => {
+  let authService: AuthService;
+  let userProfileService: UserProfileService;
+  let navigationService: NavigationService;
+
+  beforeEach(() => {
+    // 設定所有相關服務
+    authService = new AuthService();
+    userProfileService = new UserProfileService();
+    navigationService = new NavigationService();
+  });
+
+  it('should load user profile after successful login and navigate to dashboard', async () => {
+    // 測試完整的使用者流程，跨越多個函式庫
+    await authService.login('user@example.com', 'password');
+    expect(authService.isAuthenticated()).toBe(true);
+
+    const profile = await userProfileService.getCurrentUserProfile();
+    expect(profile).not.toBeNull();
+    expect(profile.email).toBe('user@example.com');
+
+    const destination = navigationService.getPostLoginDestination(profile);
+    expect(destination).toBe('/dashboard');
+  });
+});
+```
+
+3.**建立共享測試工具**：
+
+- 創建可跨函式庫使用的測試工具和助手
+- 標準化模擬和測試數據創建
+
+### 成果
+
+透過這些方法，我們成功地測試了複雜的跨函式庫互動，並及早發現了集成問題，避免了這些問題進入生產環境。
+
+## 6. 最佳實務與經驗總結
+
+經過在 Monorepo 中管理測試的實戰經驗，我們總結了以下最佳實務和經驗教訓，希望能對其他團隊有所幫助。
+
+### 6.1 測試組織與結構最佳實務
+
+### 測試程式碼與原始碼共同位置
+
+將測試文件與被測試的原始碼放在同一位置，方便維護和關聯：
+
+```
+libs/feature-auth/
+  ├── src/
+  │   ├── lib/
+  │   │   ├── login/
+  │   │   │   ├── login.component.ts
+  │   │   │   ├── login.component.html
+  │   │   │   └── login.component.spec.ts  // 直接與組件放在一起
+  │   │   ├── auth.service.ts
+  │   │   └── auth.service.spec.ts         // 直接與服務放在一起
+  │   └── index.ts
+  ├── jest.config.ts
+  └── tsconfig.spec.json
+```
+
+### 清晰的測試命名慣例
+
+採用描述性的測試命名，幫助理解測試目的：
+
+- 文件命名：`\*.spec.ts` 用於單元測試，`\*.integration-spec.ts` 用於整合測試
+- 測試描述：使用 `describe` 和 `it` 語句清晰描述測試目的
+
+```ts
+// 清晰的測試描述
+describe('AuthService', () => {
+  describe('login', () => {
+    it('should authenticate user with valid credentials', () => {
+      // ...
+    });
+
+    it('should reject login with invalid credentials', () => {
+      // ...
+    });
+
+    it('should store auth token after successful login', () => {
+      // ...
+    });
+  });
+});
+```
+
+### 測試分層
+
+將測試分層組織，從小到大：  
+1.**單元測試**：直接與原始碼放在一起  
+2.**整合測試**：可以放在專用的 `integration` 目錄  
+3.**端到端測試**：在應用程式級別的專用目錄
+
+### 6.2 經驗教訓
+
+在我們將公司專案從 Polyrepo (git submodule) 轉換為 Monorepo 的過程中，我們學到了一些寶貴的教訓：
+
+### 教訓一：優先處理測試框架統一
+
+在我們的 Polyrepo 中，不同的專案使用了不同的測試框架和設定。轉移到 Monorepo 時，我們低估了整合這些差異的難度。  
+**經驗：** 優先統一測試框架、設定和命名約定，即使這意味著短期內需要重寫一些測試。長期來看，這種統一能大幅降低維護成本。
+
+```js
+// 統一的基礎測試設定 - jest.preset.js
+module.exports = {
+  testMatch: ['**/+(*.)+(spec|test).+(ts|js)?(x)'],
+  transform: {
+    '^.+\\.(ts|js|html): 'ts-jest',
+  },
+  resolver: '@nx/jest/plugins/resolver',
+  moduleFileExtensions: ['ts', 'js', 'html'],
+  coverageReporters: ['html', 'lcov', 'text'],
+  // 統一的全局設定...
+};
+```
+
+### 教訓二：不要低估測試偏重類型的影響
+
+我們注意到，不同團隊對測試類型有不同偏好：有些專案大量使用單元測試，其他則偏重端到端測試。  
+**經驗：** 針對不同類型的函式庫訂立明確的測試覆蓋指南，而非強制所有專案遵循相同的測試比例。例如：
+
+- **UI 元件庫**：90% 單元測試 + 元件測試，10% 整合測試
+- **功能函式庫**：60% 單元測試，40% 整合測試
+- **應用程式**：40% 單元測試，30% 整合測試，30% 端到端測試
+
+### 教訓三：測試文件也是程式碼，需要維護
+
+隨著時間推移，測試文件也會積累技術債務，需要定期重構和維護。  
+**經驗：** 將測試程式碼視為與生產程式碼同等重要的資產，應用相同的程式碼品質標準、審查流程和重構實務。定期分析和優化測試程式碼，就像處理生產程式碼一樣。
+
+## 總結
+
+在從 Polyrepo 轉換到 Monorepo 的過程中，測試策略的調整和優化是我們面臨的最大挑戰之一。然而，透過精心設計的測試架構和流程，我們不僅解決了這些挑戰，還提升了整體的程式碼品質和開發效率。  
+Monorepo 中的測試不僅是確保程式碼正確性的工具，更是建置可靠軟體架構的基石。透過善用 Nx 的強大功能，如增量測試、平行執行和測試快取，再加上精心設計的測試策略和組織結構，我們能夠在保持高品質的同時，顯著提升測試效率。  
+最重要的是，我們了解到測試策略需要與整個 Monorepo 架構緊密整合，根據不同函式庫類型的特點調整測試方法，並持續優化測試流程。這種整體性的思考方式是成功實施 Monorepo 測試策略的關鍵。  
+希望本文分享的實戰經驗和具體實務能為正在經歷類似轉型的團隊提供參考。在軟體開發的道路上，測試永遠是提升品質的基石，無論架構如何變化，這一點始終不變。
+
+## 延伸閱讀
+
+1. [Nx 官方文檔：Testing](https://nx.dev/packages/jest)
+2. [Jest 官方文檔](https://jestjs.io/docs/getting-started)
+3. [Cypress 在 Monorepo 中的最佳實務](https://docs.cypress.io/guides/references/best-practices)
+4. [測試金字塔實務指南](https://martinfowler.com/articles/practical-test-pyramid.html)
+5. [端到端測試策略](https://testing-library.com/docs/react-testing-library/intro/)
+
+## 下一篇預告
+
+在下一篇文章中，我們將探討如何解決 Monorepo 中的效能問題，特別是當程式碼庫持續增長時如何保持建置和測試速度。我們將分享具體的效能優化策略和工具，敬請期待！
