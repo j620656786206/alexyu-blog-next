@@ -5,6 +5,7 @@ import headerNavLinks from '@/data/headerNavLinks';
 import Link from './Link';
 import MobileNav from './MobileNav';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 
 const ThemeSwitch = dynamic(() => import('./ThemeSwitchWrapper'), {
   loading: () => <div className="mr-5 h-6 w-6" />,
@@ -26,11 +27,13 @@ const Header = () => {
       <Link href="/" aria-label={siteMetadata.headerTitle}>
         <div className="flex items-center justify-between">
           <div className="mr-3">
-            <img
+            <Image
               className="rounded-full"
               src="/static/images/logo.png"
-              width="100"
-              height="100"
+              alt={siteMetadata.headerTitle || 'Site Logo'}
+              width={100}
+              height={100}
+              priority
             />
           </div>
           {typeof siteMetadata.headerTitle === 'string' ? (
