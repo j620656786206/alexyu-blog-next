@@ -1,0 +1,421 @@
+---
+title: 將公司專案轉換成 Monorepo 遇到的那些事 - 第八篇 解決 Monorepo 中的效能問題
+description: 深入探討大型 Monorepo 專案中的效能瓶頸問題，分享我們團隊如何透過自託管遠端快取與 Module Federation 架構提升建置效率，包含從 Nx Cloud 到 S3 快取的演進歷程，以及應對 Nx 未來變更的策略考量。
+date: '2025-05-03'
+slug: monorepo-performance-optimization-guide
+images: ['/static/images/monorepo-performance.webp']
+tags:
+  [
+    'monorepo',
+    'nx',
+    '效能優化',
+    '遠端快取',
+    'Module Federation',
+    'Micro Frontend',
+    'AWS S3',
+    '建置時間',
+    'CI/CD管道',
+    '增量建置',
+    '前端工程',
+    '技術實務',
+  ]
+---
+
+![Nx Custom Cache vs AWS ECS](/static/images/nx-custom-cache-vs-aws-ecs.png)
+
+# 第八篇：解決 monorepo 中的性能問題
+
+## 前言
+
+在前幾篇文章中，我們討論了如何將多個專案整合成一個 Monorepo，以及這種做法帶來的各種好處。然而，當專案規模不斷擴大，程式碼量急劇增加，我們便會遇到一個不可避免的問題：效能瓶頸。今天，我要分享我們團隊如何透過優化 Nx 的遠端快取策略，大幅提升 Monorepo 的建置效能，並解決 Micro Frontend 架構下的特殊挑戰。
+
+## Monorepo 的效能挑戰
+
+隨著專案越來越大，我們常會遇到以下效能問題：
+
+1. **建置時間過長**：整個專案從編譯到打包可能需要數十分鐘甚至數小時
+2. **重複建置**：相同程式碼被反覆編譯，浪費運算資源
+3. **依賴關係複雜**：難以追蹤和管理跨專案間的依賴
+4. **CI/CD 管道效率低落**：持續整合流程耗時增加，影響團隊開發速度
+
+對於採用 Micro Frontend 架構的專案，這些問題更為顯著，因為我們需要獨立建置多個應用，再整合到一起。
+
+## Module Federation：Micro Frontend 的效能解決方案
+
+我們公司的專案採用了基於 Nx 的 Micro Frontend 架構，其中使用 Module Federation 技術將大型應用程式切分為多個獨立建置的部分。這種架構有幾個好處：
+
+1. **獨立建置**：每個微前端模組可以獨立建置和部署，減少整體建置時間
+2. **平行開發**：不同團隊可以同時開發不同模組，提高開發效率
+3. **按需載入**：只在需要時才載入特定模組，減少初始載入時間
+
+然而，Micro Frontend 架構也帶來了新的效能挑戰，尤其是在開發環境中同時運行多個開發伺服器時。遠端快取在此扮演了關鍵角色，幫助我們解決這些問題。
+
+## Nx 如何解決這些問題
+
+Nx 作為一套強大的 Monorepo 開發工具，提供了幾個關鍵機制來解決上述問題：
+
+1. **智慧快取**：只重新建置已變更的程式碼，大幅減少不必要的編譯時間
+2. **增量建置**：透過 `nx affected` 指令只處理受影響的專案
+3. **依賴圖視覺化**：利用 `nx graph` 清楚展示專案間的依賴關係
+4. **平行執行**：自動將任務分散到多個 CPU 核心執行
+5. **分散式執行**：支援將任務分散到多台機器執行
+6. **遠端快取**：讓團隊成員可以共享建置結果
+
+搭配 Module Federation 使用時，Nx 更能發揮其優勢，因為它能夠理解模組之間的關係，並自動處理依賴關係。
+
+```json
+// nx.json 基本設定範例
+{
+  "extends": "nx/presets/npm.json",
+  "tasksRunnerOptions": {
+    "default": {
+      "runner": "@nx/tasks-runners/default",
+      "options": {
+        "cacheableOperations": ["build", "lint", "test", "e2e"]
+      }
+    }
+  },
+  "targetDefaults": {
+    "build": {
+      "dependsOn": ["^build"]
+    }
+  }
+}
+```
+
+## 遠端快取的演進歷程
+
+我們團隊的遠端快取解決方案經歷了幾個階段的演進，每個階段都有其優缺點。在使用 Nx v17.3.1 的專案中，我們歷經了以下幾個階段：
+
+### 第一階段：Nx Cloud
+
+```json
+// nx.json 設定 Nx Cloud
+{
+  "tasksRunnerOptions": {
+    "default": {
+      "runner": "nx-cloud",
+      "options": {
+        "cacheableOperations": ["build", "lint", "test", "e2e"],
+        "accessToken": "YOUR_NX_CLOUD_ACCESS_TOKEN"
+      }
+    }
+  }
+}
+```
+
+**優點**：
+
+- 設定簡單，幾分鐘內就能完成
+- 無需自行維護基礎設施
+- 內建分析和監控工具
+- 支援分散式執行
+
+
+**缺點**：
+
+- 免費版有使用限制
+- 企業級功能需要付費
+- 建置結果儲存在第三方雲端
+- 某些網路環境下可能連線不穩定
+
+
+### 第二階段：AWS ECS 自託管
+
+```json
+// nx.json 設定自定義快取運行器
+{
+  "tasksRunnerOptions": {
+    "default": {
+      "runner": "@our-org/nx-cache-runner",
+      "options": {
+        "cacheableOperations": ["build", "lint", "test", "e2e"],
+        "endpoint": "https://our-ecs-cache-service.example.com"
+      }
+    }
+  }
+}
+```
+
+**優點**：
+
+- 完全掌控快取機制和資料
+- 不受 Nx Cloud 使用限制
+- 可依據團隊需求客製化
+
+
+**缺點**：
+
+- 設定和維護成本高
+- 基礎設施管理負擔重
+- 平均快取存取時間約 1 分 30 秒
+- 需要專門的人力維護
+
+
+### 第三階段： @pellegrims/nx-remotecache-s3
+
+```json
+// nx.json 設定 S3 快取
+{
+  "tasksRunnerOptions": {
+    "default": {
+      "runner": "@pellegrims/nx-remotecache-s3",
+      "options": {
+        "cacheableOperations": ["build", "lint", "test", "e2e"],
+        "s3Options": {
+          "region": "ap-northeast-1",
+          "bucketName": "your-nx-cache-bucket"
+        }
+      }
+    }
+  }
+}
+```
+
+**優點**：
+
+- 設定相對簡單
+- 直接利用 AWS S3 作為儲存空間
+- 快取存取時間僅需 15 秒
+- 與先前的 ECS 解決方案相比，效率提升了 83.23%
+- 維護成本低
+
+
+**缺點**：
+
+- 依賴 AWS 服務
+- 需要適當設定 S3 權限
+- 缺少內建的分析工具
+
+![Nx Custom Cache Jenkins Build](/static/images/nx-custom-cache-jenkins-build.jpeg)
+
+## Module Federation 與快取效能的關聯
+
+在我們的 Micro Frontend 架構中，Module Federation 和遠端快取共同發揮了強大作用。當使用 Module Federation 時，每個微前端模組都是獨立建置的，這既是優勢也是挑戰：  
+**優勢**：
+
+- 獨立的建置流程可以分散到不同機器或時間執行
+- 不需要重新建置整個應用，只需重建修改的部分
+- 每個微前端團隊可以相對獨立地工作
+
+
+**挑戰**：
+
+- 如果沒有快取機制，獨立建置的總時間可能超過整體建置時間
+- 開發環境中運行多個服務會消耗大量資源
+- 需要確保不同微前端間共用庫的一致性
+
+
+遠端快取透過以下方式解決了這些挑戰：
+
+1. **避免重複建置**：當一個微前端未修改時，可直接從快取獲取先前的建置結果
+2. **加速 CI/CD**：CI 環境中，只需建置修改過的微前端，其他從快取獲取
+3. **節省資源**：開發階段可只運行正在修改的微前端，其他從快取提供
+
+在我們的環境中，將 S3 快取與 Module Federation 結合後，當開發者只修改一個微前端時，整體建置時間從原本的 15 分鐘降低到了約 3-4 分鐘，減少了 75% 以上的等待時間。
+
+## 效能案例研究：React 應用的建置優化
+
+以下是我們 React 應用在實施遠端快取後的效能改進案例：
+
+### 1. 一個典型的 React 元件庫建置
+
+假設我們有一個共用的 UI 元件庫，包含數十個 React 元件：
+
+```tsx
+// 範例：共用按鈕元件
+// libs/ui/src/lib/Button/Button.tsx
+import React from 'react';
+import styled from 'styled-components';
+
+interface ButtonProps {
+  primary?: boolean;
+  size?: 'small' | 'medium' | 'large';
+  label: string;
+  onClick?: () => void;
+}
+
+const StyledButton = styled.button<Omit<ButtonProps, 'label'>>`
+  background-color: ${(props) => (props.primary ? '#1ea7fd' : '#f8f8f8')};
+  color: ${(props) => (props.primary ? 'white' : '#333')};
+  font-size: ${(props) => {
+    switch (props.size) {
+      case 'small':
+        return '12px';
+      case 'large':
+        return '16px';
+      default:
+        return '14px';
+    }
+  }};
+  padding: ${(props) => {
+    switch (props.size) {
+      case 'small':
+        return '8px 16px';
+      case 'large':
+        return '16px 24px';
+      default:
+        return '12px 20px';
+    }
+  }};
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+`;
+
+export const Button: React.FC<ButtonProps> = ({
+  primary = false,
+  size = 'medium',
+  label,
+  ...props
+}) => {
+  return (
+    <StyledButton primary={primary} size={size} {...props}>
+      {label}
+    </StyledButton>
+  );
+};
+```
+
+**建置時間比較**：
+
+- 無快取：45 秒
+- Nx Cloud：12 秒
+- AWS ECS：23 秒
+- S3 快取：8 秒
+
+
+### 2. 多專案建置場景
+
+考慮一個包含多個微前端應用的 Monorepo：
+
+```bash
+# 專案結構範例
+apps/
+  ├── main-shell/
+  ├── customer-portal/
+  ├── admin-dashboard/
+  └── reporting-tool/
+libs/
+  ├── ui/
+  ├── auth/
+  ├── data-access/
+  ├── feature-user/
+  └── feature-reporting/
+```
+
+**完整建置時間比較**：
+
+- 無快取：15 分鐘
+- Nx Cloud：4 分鐘
+- AWS ECS：6 分 30 秒
+- S3 快取：3 分 15 秒
+
+
+## Nx Custom Cache 的未來與團隊決策
+
+在 2024 年，Nx 團隊宣布計劃將 Nx 核心從 TypeScript 遷移到 Rust，預計在 2025 年完成。這項遷移旨在提高 Nx 的速度、減少套件大小，並實現更強大的命令列介面。然而，這也帶來了一項重大變更：自定義任務運行器（custom task runners）API 將被棄用([GitHub](https://github.com/nrwl/nx/issues/28434))。
+這引發了廣泛討論，因為許多團隊使用自定義任務運行器來實現自託管遠端快取，讓他們能將快取資料儲存在自己控制的環境中。社群中有人擔憂「移除自定義任務運行器意味著我們無法使用現有的運行器來將 Nx 分散式快取儲存在我們選擇的儲存解決方案中」，並且「我們將被迫使用 Nx powerpack，這是一項按座位收費的付費功能」([GitHub](https://github.com/nrwl/nx/discussions/28332))。
+在詳細了解了這一情況後，我們團隊進行了深入討論，得出了以下決策：
+
+1. **Nx Custom Cache 只支援到 Nx 20 以下版本**
+   根據 GitHub 上的討論，自定義任務運行器將在 Nx 21 之後被移除。
+2. **Nx 每個大版本支援總共 18 個月**
+   目前我們專案使用的是 Nx 17 版本，根據 Nx 的支援政策，這意味著我們還有一段時間可以使用當前版本。
+3. **Nx 19 以上版本暫時不考慮**
+   除了自定義快取問題外，Nx 19 引入了一些對本地變數處理的變更，這需要我們調整現有程式碼。
+
+
+我們選擇不升級到更新版本的 Nx 並堅持使用自託管快取而非 Nx Cloud 的原因主要有以下幾點：
+
+1. **資料安全性與隱私考量**：
+   我們公司對於將程式碼和建置資訊儲存在第三方服務上有嚴格的安全政策。使用 Nx Cloud 意味著我們的建置資料會存放在外部，而這不符合資安要求。使用自託管的 S3 解決方案讓我們能完全掌控資料的存放位置和存取權限。
+2. **成本效益評估**：
+   雖然 Nx Cloud 提供免費方案，但對於我們團隊規模和使用量來說，很快就會超過免費額度。根據我們的估算，升級至付費方案的成本遠高於自行維護 S3 儲存空間的費用。
+3. **現有解決方案的穩定性**：
+   我們目前使用的 `@pellegrims/nx-remotecache-s3` 方案運作良好，快取存取時間只有 15 秒，比先前的 ECS 解決方案提升了 83.23% 的效率。這個方案已經能滿足我們的需求，沒有必要冒險更換。
+4. **避免潛在的供應商鎖定**：
+   Nx 團隊宣布將自定義快取功能轉移到付費產品中的做法讓我們擔憂未來可能會有更多核心功能被轉為付費服務。保持在較舊但穩定的版本可以避免這種風險，同時讓我們有更多時間評估長期策略。
+5. **團隊熟悉度與學習成本**：
+   我們的開發團隊已經熟悉現有的 Nx 版本和快取解決方案。升級可能需要額外的學習和適應時間，而這在當前的專案時程中並非優先事項。
+6. **Micro Frontend 架構的特殊需求**：
+   由於我們採用了 Module Federation 架構，遠端快取對於提高開發效率和 CI/CD 效能尤為重要。變更快取策略可能會對整個團隊的工作流程產生重大影響，因此我們採取了較為保守的態度。
+
+
+因此，我們的短期策略是繼續使用 Nx 17.x 版本搭配 `@pellegrims/nx-remotecache-s3`，同時評估以下幾個中長期選項：
+
+1. **維持 Nx 版本不超過 20**
+   這是最簡單的方法，但長期來看不可持續。
+2. **Fork Nx 並內部維護**
+   參考 Jordan-Hall 的 [PR](https://github.com/Jordan-Hall/NXRC/pull/3) 和 [fork](https://github.com/Jordan-Hall/NXRC) 版本，我們可以建立自己的 Nx 分支，並在內部維護支援自定義快取的功能。
+3. **評估其他 Monorepo 工具**
+   如 Turborepo，它明確支援自託管快取且沒有計劃將此功能轉為付費。
+
+
+值得注意的是，Nx 團隊在聽取社群反饋後，已經改變了他們的計劃。在 2025 年 4 月的重要更新中，Nx 團隊宣布：「我們改變了計劃。我們正在實作一個 API 以允許自託管快取。所有功能將在 Nx 21 發布前準備就緒，確保每個人都能順利過渡。自託管快取將在所有版本的 Nx 中可用。」
+這項政策變更可能會影響我們未來的決策，但目前我們仍然傾向於保持現有解決方案，直到新的 API 和功能完全穩定且經過實際驗證。
+
+## 實施效能最佳實踐
+
+無論使用哪種快取方案，以下最佳實踐都能幫助優化 Nx Monorepo 的效能：
+
+### 1. 謹慎劃分專案邊界
+
+```json
+// 在 libs/feature-user/project.json 中正確設定相依性
+{
+  "name": "feature-user",
+  // ...
+  "implicitDependencies": ["ui", "auth", "data-access"]
+}
+```
+
+### 2. 優化 Nx 設定
+
+```json
+// 設定 parallel 以充分利用多核 CPU
+// nx.json
+{
+  "tasksRunnerOptions": {
+    "default": {
+      "runner": "@pellegrims/nx-remotecache-s3",
+      "options": {
+        // ...
+        "parallel": 5, // 根據 CPU 核心數調整
+        "maxParallel": 8
+      }
+    }
+  }
+}
+```
+
+### 3. 實施漸進式建置策略
+
+```bash
+# 只建置受影響的專案
+npx nx affected --target=build
+
+# 使用 --parallel 加速
+npx nx affected --target=build --parallel=5
+
+# 使用 --skip-nx-cache 強制重新建置
+npx nx affected --target=build --skip-nx-cache
+```
+
+### 4. 善用 Module Federation 的開發模式
+
+在 Micro Frontend 架構中，我們可以利用 Nx 提供的 `--devRemotes` 選項來優化開發體驗：
+
+```bash
+# 只在開發模式運行主應用和正在修改的遠端模組
+nx serve host --devRemotes="customer-portal"
+```
+
+這樣做可以顯著減少開發環境中的資源消耗，因為其他模組會從快取中載入，而非開啟多個開發伺服器。
+
+## 結論
+
+Monorepo 效能優化是一個持續進行的過程。透過實施遠端快取，我們的團隊成功將建置時間減少了 83.23%，大幅提高了開發效率。對於採用 Micro Frontend 架構的專案，快取機制的重要性更為凸顯，因為它直接影響了開發體驗和 CI/CD 流程的效率。
+雖然 Nx 的發展方向一度帶來了不確定性，但我們透過審慎評估現有選項，選擇了最符合我們需求和限制的解決方案。無論 Nx 未來如何發展，重要的是根據團隊的實際需求和限制做出適合的技術選擇，並持續監控和優化建置流程，確保開發體驗保持流暢和高效。
+在 Monorepo 和 Micro Frontend 的世界中，良好的效能不僅提高生產力，還能增強團隊士氣和程式碼品質。透過合理的快取策略，我們可以兼顧開發的靈活性和建置的效率，讓複雜的前端架構變得更加可控和高效。
+希望這篇分享能幫助你的團隊在 Monorepo 中解決效能問題。你有什麼 Monorepo 效能優化的心得嗎？歡迎在留言區分享你的經驗！
