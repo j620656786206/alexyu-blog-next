@@ -1,9 +1,18 @@
+'use client';
+
 import siteMetadata from '@/data/siteMetadata';
 import headerNavLinks from '@/data/headerNavLinks';
 import Link from './Link';
 import MobileNav from './MobileNav';
-import ThemeSwitch from './ThemeSwitch';
-import SearchButton from './SearchButton';
+import dynamic from 'next/dynamic';
+
+const ThemeSwitch = dynamic(() => import('./ThemeSwitchWrapper'), {
+  loading: () => <div className="mr-5 h-6 w-6" />,
+});
+
+const SearchButton = dynamic(() => import('./SearchButton'), {
+  loading: () => <div className="h-6 w-6" />,
+});
 
 const Header = () => {
   let headerClass =
