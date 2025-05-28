@@ -3,7 +3,7 @@ const siteMetadata = {
   title: 'Alex Yu Blog',
   author: 'Alex Yu',
   headerTitle: '工程師與貓',
-  description: '',
+  description: '工程師的技術分享與生活記錄，專注於程式開發、技術學習與個人成長。Alex Yu 的個人部落格，分享軟體工程師的日常與思考。',
   language: 'zh-TW',
   theme: 'system', // system, dark or light
   siteUrl: 'https://alexyu-blog.com/',
@@ -71,8 +71,8 @@ const siteMetadata = {
       // please provide a link below to your custom theme css file.
       // example: https://giscus.app/themes/custom_example.css
       themeURL: '',
-      // This corresponds to the `data-lang="en"` in giscus's configurations
-      lang: 'en',
+      // This corresponds to the `data-lang="zh-TW"` in giscus's configurations
+      lang: 'zh-TW',
     },
   },
   search: {
