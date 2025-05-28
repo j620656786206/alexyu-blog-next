@@ -23,7 +23,7 @@ tags:
 
 經過前九篇文章的深入探討，我們已經見證了從 Monorepo 基礎概念到實際實施的完整轉型歷程。當談到「未來的 Monorepo」時，微前端架構總是被視為一個重要的發展方向。然而，在理想化的技術討論中，我們往往會忽略一個關鍵問題：**真實的企業環境需要什麼樣的微前端？**
 
-今天，我想通過分析一個真實執行的企業級 Monorepo 專案，來展示微前端架構的實務面貌。這個專案採用的不是教科書中描述的完全獨立微前端，而是基於 Module Federation 的實用架構。它可能不是最理想的技術方案，但卻是最適合企業實際需求的選擇。
+今天，我想透過分析一個真實運行的企業級 Monorepo 專案，來展示微前端架構的實務面貌。這個專案採用的不是教科書中描述的完全獨立微前端，而是基於 Module Federation 的實用架構。它可能不是最理想的技術方案，但卻是最適合企業實際需求的選擇。
 
 通過這個對比，我們將發現：**最好的技術架構不是最先進的，而是最適合的。**
 
@@ -35,9 +35,9 @@ tags:
 
 **完全獨立模式**是最理想化的微前端實現。每個微前端都是完全獨立的應用，擁有自己的域名、部署環境和技術堆疊。它們通過標準化的 API 和事件系統進行通信。這種模式提供了最大的技術自由度和團隊獨立性，但也帶來了最高的複雜度。
 
-**iframe 整合模式**是最簡單直接的微前端實現。通過將不同的應用嵌入到 iframe 中，可以實現天然的隔離和獨立部署。但是，iframe 帶來的用戶體驗問題（如路由管理、樣式隔離、通信複雜性）使其在現代企業應用中逐漸式微。
+**iframe 整合模式**是最簡單直接的微前端實現。通過將不同的應用嵌入到 iframe 中，可以實現天然的隔離和獨立部署。但是，iframe 帶來的使用者體驗問題（如路由管理、樣式隔離、通信複雜性）使其在現代企業應用中逐漸式微。
 
-**Module Federation 模式**則介於兩者之間。它通過 webpack 的 Module Federation 功能，在構建時將應用分離為多個可獨立開發的模組，但在執行時將它們整合在統一的上下文中。這種模式既實現了開發時的模組化，又保持了執行時的統一體驗。
+**Module Federation 模式**則介於兩者之間。它通過 webpack 的 Module Federation 功能，在建置時將應用分離為多個可獨立開發的模組，但在執行時將它們整合在統一的上下文中。這種模式既實現了開發時的模組化，又保持了執行時的統一體驗。
 
 ### 企業級架構選擇的真實考量
 
@@ -45,7 +45,7 @@ tags:
 
 **時間和成本壓力**是另一個重要考量。完全獨立的微前端架構需要投入大量時間來建設基礎設施、制定標準、解決跨應用問題。在業務快速發展的企業中，這種投入往往難以得到支持。
 
-**用戶體驗需求**也是關鍵因素。大多數企業級應用需要提供統一、流暢的用戶體驗。完全獨立的微前端在這方面面臨天然的挑戰，而 Module Federation 則能夠提供接近單體應用的用戶體驗。
+**使用者體驗需求**也是關鍵因素。大多數企業級應用需要提供統一、流暢的使用者體驗。完全獨立的微前端在這方面面臨天然的挑戰，而 Module Federation 則能夠提供接近單體應用的使用者體驗。
 
 正如我們在第二篇文章中討論 Nx 工具選擇時所體現的實用主義原則，微前端架構的選擇同樣需要在理想與現實之間找到最佳平衡點。
 
@@ -61,7 +61,7 @@ tags:
 
 Module Federation 的核心是 Container + Remote 的架構模式。Container 應用作為主要的容器和協調者，負責載入和管理各個 Remote 模組。這種架構的關鍵在於它創造了一個統一的運行環境，同時允許模組在開發時保持相對獨立。
 
-在實際執行中，Container 不僅僅是一個簡單的殼層應用。它承擔著路由管理、狀態協調、錯誤處理、權限控制等多重職責。每個 Remote 模組則專注於特定的業務功能，它們可以獨立開發、測試和部署，但最終都會在 Container 提供的統一環境中執行。
+在實際運行中，Container 不僅僅是一個簡單的殼層應用。它承擔著路由管理、狀態協調、錯誤處理、權限控制等多重職責。每個 Remote 模組則專注於特定的業務功能，它們可以獨立開發、測試和部署，但最終都會在 Container 提供的統一環境中執行。
 
 ### 統一上下文 vs 分散式應用的根本差異
 
@@ -71,7 +71,7 @@ Module Federation 的核心是 Container + Remote 的架構模式。Container �
 
 ### 動態模組載入機制的實現細節
 
-Module Federation 的動態載入機制是其核心優勢之一。當用戶導航到某個功能模組時，Container 會動態載入對應的 Remote 程式碼。這種載入是異步的，不會阻塞主應用的初始化。
+Module Federation 的動態載入機制是其核心優勢之一。當使用者導航到某個功能模組時，Container 會動態載入對應的 Remote 程式碼。這種載入是異步的，不會阻塞主應用的初始化。
 
 但是，動態載入也帶來了新的挑戰。載入失敗的處理、網路延遲的最佳化、模組版本的管理等問題都需要仔細設計和處理。在實際實作中，這些細節往往決定了系統的穩定性和使用者體驗。
 
@@ -93,11 +93,11 @@ Module Federation 的動態載入機制是其核心優勢之一。當用戶導�
 
 在許多微前端的理論討論中，跨應用狀態同步被視為一個核心技術挑戰。各種複雜的解決方案被提出，包括事件總線、共享狀態管理器、消息中間件等。但在 Module Federation 架構中，這個問題根本不存在。
 
-由於所有模組執行在同一個 JavaScript 上下文中，它們可以直接共享同一個 Redux store 或其他狀態管理方案。這種共享不需要任何特殊的通訊機制，也不會產生狀態同步的延遲或一致性問題。程式設計師可以像在單體應用程式中一樣直接使用 `useSelector` 和 `dispatch`，獲得完全相同的開發體驗。
+由於所有模組執行在同一個 JavaScript 上下文中，它們可以直接共享同一個 Redux store 或其他狀態管理方案。這種共享不需要任何特殊的通訊機制，也不會產生狀態同步的延遲或一致性問題。開發者可以像在單體應用程式中一樣直接使用 `useSelector` 和 `dispatch`，獲得完全相同的開發體驗。
 
 ### 統一 Redux Store 的實用性優勢
 
-統一的狀態管理不僅簡化了開發複雜度，還帶來了其他重要優勢。**除錯**變得更加直觀，程式設計師可以使用標準的 Redux DevTools 來查看整個應用程式的狀態變化，而不需要在多個應用間切換。
+統一的狀態管理不僅簡化了開發複雜度，還帶來了其他重要優勢。**除錯**變得更加直觀，開發者可以使用標準的 Redux DevTools 來查看整個應用程式的狀態變化，而不需要在多個應用間切換。
 
 **性能優化**也更容易實現。統一的 store 可以更好地利用 React 的性能優化機制，如 memoization 和 selective re-rendering。在完全獨立的微前端中，這些優化往往會因為跨應用邊界而失效。
 
@@ -109,7 +109,7 @@ Module Federation 的動態載入機制是其核心優勢之一。當用戶導�
 
 這種複雜性體現在多個層面。**通訊機制**需要在不同的微前端間建立可靠的訊息傳遞通道。**狀態同步**需要處理網路延遲、訊息丟失、順序問題等分散式系統的經典難題。**衝突解決**需要在多個微前端同時修改相同數據時維護一致性。
 
-更重要的是，這些複雜性會直接影響開發體驗。程式設計師需要編寫大量的樣板程式碼來處理跨應用程式通訊，需要處理異步狀態同步的各種邊界情況，需要學習和掌握分散式系統的相關知識。
+更重要的是，這些複雜性會直接影響開發體驗。開發者需要編寫大量的樣板程式碼來處理跨應用程式通訊，需要處理異步狀態同步的各種邊界情況，需要學習和掌握分散式系統的相關知識。
 
 ### 何時真正需要跨應用通信
 
@@ -121,7 +121,7 @@ Module Federation 的動態載入機制是其核心優勢之一。當用戶導�
 
 ### 與 Library 管理的呼應
 
-如第三篇文章所述，shared libraries 的合理使用是 Monorepo 成功的關鍵因素之一。在 Module Federation 架構中，這一點更加重要。共享的 hooks、組件、工具函數不僅減少了代碼重複，還確保了不同模組間的一致性和協調性。
+如第三篇文章所述，shared libraries 的合理使用是 Monorepo 成功的關鍵因素之一。在 Module Federation 架構中，這一點更加重要。共享的 hooks、組件、工具函數不僅減少了重複程式碼，還確保了不同模組間的一致性和協調性。
 
 這種一致性在狀態管理中尤為重要。當所有模組都使用相同的狀態管理 hooks 和工具函數時，狀態的變化和響應會保持完全同步，避免了分散式狀態管理中常見的一致性問題。
 
@@ -153,20 +153,26 @@ function App() {
           <Routes>
             {/* 首頁重定向 */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            
+
             {/* 各個業務模組的路由 */}
-            <Route path="/finance/*" element={
-              <Suspense fallback={<ModuleLoadingSpinner module="財務管理" />}>
-                <FinanceModule />
-              </Suspense>
-            } />
-            
-            <Route path="/logistics/*" element={
-              <Suspense fallback={<ModuleLoadingSpinner module="物流管理" />}>
-                <LogisticsModule />
-              </Suspense>
-            } />
-            
+            <Route
+              path="/finance/*"
+              element={
+                <Suspense fallback={<ModuleLoadingSpinner module="財務管理" />}>
+                  <FinanceModule />
+                </Suspense>
+              }
+            />
+
+            <Route
+              path="/logistics/*"
+              element={
+                <Suspense fallback={<ModuleLoadingSpinner module="物流管理" />}>
+                  <LogisticsModule />
+                </Suspense>
+              }
+            />
+
             {/* 404 處理 */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
@@ -208,11 +214,11 @@ export const FinanceModule = () => {
 };
 ```
 
-相比之下，完全獨立的微前端需要在多個獨立的路由器之間進行協調。當用戶在不同的微前端間導航時，需要複雜的機制來同步瀏覽器歷史、管理深層連結、處理路由衝突等問題。
+相比之下，完全獨立的微前端需要在多個獨立的路由器之間進行協調。當使用者在不同的微前端間導航時，需要複雜的機制來同步瀏覽器歷史、管理深層連結、處理路由衝突等問題。
 
 ### Module Federation 路由的簡潔性
 
-在 Module Federation 中，路由管理幾乎與單體應用無異。程式設計師可以使用熟悉的 React Router API，享受標準的開發體驗。
+在 Module Federation 中，路由管理幾乎與單體應用無異。開發者可以使用熟悉的 React Router API，享受標準的開發體驗。
 
 **程式化導航的統一實現**：
 
@@ -278,7 +284,7 @@ export const AppBreadcrumb = () => {
 
   const breadcrumbItems = pathSegments.map((segment, index) => {
     const isModule = index === 0;
-    const displayName = isModule 
+    const displayName = isModule
       ? moduleNameMap[segment] || segment
       : pathNameMap[segment] || segment;
 
@@ -292,15 +298,15 @@ export const AppBreadcrumb = () => {
 
   return (
     <AntBreadcrumb
-      items={breadcrumbItems.map(item => ({
-        title: <Link to={item.path}>{item.title}</Link>
+      items={breadcrumbItems.map((item) => ({
+        title: <Link to={item.path}>{item.title}</Link>,
       }))}
     />
   );
 };
 ```
 
-這種簡潔性不僅體現在用戶體驗上，也體現在開發和維護體驗上。除錯路由問題時，程式設計師可以使用標準的瀏覽器開發工具和 React DevTools，而不需要特殊的跨應用調試工具。
+這種簡潔性不僅體現在使用者體驗上，也體現在開發和維護體驗上。除錯路由問題時，開發者可以使用標準的瀏覽器開發工具和 React DevTools，而不需要特殊的跨應用調試工具。
 
 ### 獨立微前端路由同步的複雜挑戰
 
@@ -330,16 +336,16 @@ class MicrofrontendRouterCoordinator {
   handleRouteChange({ microfrontendId, newRoute, oldRoute }) {
     // 更新活躍路由記錄
     this.activeRoutes.set(microfrontendId, newRoute);
-    
+
     // 同步到其他微前端
     this.broadcastRouteChange(microfrontendId, newRoute);
-    
+
     // 更新瀏覽器歷史
     this.updateBrowserHistory();
   }
 
   handleBrowserNavigation(state) {
-    // 當用戶點擊前進後退時，需要協調各個微前端
+    // 當使用者點擊前進後退時，需要協調各個微前端
     if (state && state.microfrontendRoutes) {
       Object.entries(state.microfrontendRoutes).forEach(([id, route]) => {
         this.notifyMicrofrontend(id, route);
@@ -355,7 +361,7 @@ class MicrofrontendRouterCoordinator {
 
 ```javascript
 // Module Federation 中的深層連結天然支援
-// 用戶直接訪問 https://app.company.com/finance/invoice/INV-12345
+// 使用者直接訪問 https://app.company.com/finance/invoice/INV-12345
 // 系統會自然地：
 // 1. 載入 finance 模組
 // 2. 在 finance 模組內路由到 invoice/INV-12345
@@ -366,7 +372,7 @@ import { useParams } from 'react-router-dom';
 
 export const InvoiceDetailPage = () => {
   const { invoiceId } = useParams(); // 直接獲取 URL 參數
-  
+
   // 無需任何特殊處理，與單體應用程式完全相同
   return (
     <div>
@@ -379,7 +385,7 @@ export const InvoiceDetailPage = () => {
 
 ### 企業級應用的路由管理偏好
 
-大多數企業級應用偏好統一的路由管理，主要原因是**用戶體驗的一致性**。
+大多數企業級應用偏好統一的路由管理，主要原因是**使用者體驗的一致性**。
 
 **權限控制的統一實現**：
 
@@ -402,7 +408,7 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const checkPermission = (path: string) => {
     const requiredPermissions = routePermissions[path] || [];
-    return requiredPermissions.some(permission => 
+    return requiredPermissions.some(permission =>
       permissions.includes(permission) || permissions.includes('admin')
     );
   };
@@ -436,7 +442,7 @@ export const MODULE_ROUTES = {
       payment: '/payment',
     }
   },
-  
+
   LOGISTICS: {
     prefix: '/logistics',
     children: {
@@ -444,7 +450,7 @@ export const MODULE_ROUTES = {
       tracking: '/tracking',
     }
   },
-  
+
   // 管理功能模組
   ADMIN: {
     prefix: '/admin',
@@ -454,7 +460,7 @@ export const MODULE_ROUTES = {
       settings: '/settings',
     }
   },
-  
+
   // 工具模組
   TOOLS: {
     prefix: '/tools',
@@ -466,7 +472,7 @@ export const MODULE_ROUTES = {
   }
 } as const;
 
-// 路由構建工具
+// 路由建置工具
 export const buildRoute = (module: keyof typeof MODULE_ROUTES, subPath?: string) => {
   const moduleConfig = MODULE_ROUTES[module];
   return `${moduleConfig.prefix}${subPath || ''}`;
@@ -515,7 +521,7 @@ import { useMatch } from 'react-router-dom';
 import { routeGuards } from '../../config/routeGuards';
 
 export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const matchedGuard = routeGuards.find(guard => 
+  const matchedGuard = routeGuards.find(guard =>
     useMatch({ path: guard.path, end: false })
   );
 
@@ -531,7 +537,7 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
 };
 ```
 
-這種策略也有助於權限管理和訪問控制。基於路由前綴，可以更容易地實現細粒度的權限控制，確保不同用戶只能訪問他們有權限的功能模組。
+這種策略也有助於權限管理和訪問控制。基於路由前綴，可以更容易地實現細粒度的權限控制，確保不同使用者只能訪問他們有權限的功能模組。
 
 ## 第五部分：架構決策的商業邏輯
 
@@ -539,23 +545,23 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
 
 在企業環境中，技術決策很少純粹基於技術優劣，更多時候需要考慮總體擁有成本。**開發複雜度與維護成本**的平衡是其中的關鍵考量。Module Federation 的開發複雜度相對較低，接近單體應用的開發體驗，但提供了模組化的架構優勢。
 
-**團隊學習曲線**是另一個重要因素。大多數前端程式設計師已經熟悉 React、webpack 等技術，Module Federation 只是在這些已有知識基礎上的延伸。而完全獨立的微前端往往需要掌握分散式系統、跨應用通信等更複雜的概念。
+**團隊學習曲線**是另一個重要因素。大多數前端開發者已經熟悉 React、webpack 等技術，Module Federation 只是在這些已有知識基礎上的延伸。而完全獨立的微前端往往需要掌握分散式系統、跨應用通信等更複雜的概念。
 
 **長期收益的評估**也需要考慮。雖然完全獨立的微前端在理論上提供了更大的靈活性，但這種靈活性在實際業務中的價值需要仔細評估。對於大多數企業而言，Module Federation 提供的模組化程度已經足夠滿足業務需求。
 
 ### 業務需求的實際匹配度
 
-**用戶體驗需求**是影響架構選擇的重要因素。大多數企業級應用需要提供統一、流暢的用戶體驗。使用者不會關心應用程式的技術架構，他們只關心功能是否好用、回應是否快速、體驗是否一致。
+**使用者體驗需求**是影響架構選擇的重要因素。大多數企業級應用需要提供統一、流暢的使用者體驗。使用者不會關心應用程式的技術架構，他們只關心功能是否好用、回應是否快速、體驗是否一致。
 
 **開發效率需求**也是關鍵考量。在快速變化的商業環境中，能夠快速響應業務需求的架構往往比技術上最優雅的架構更有價值。Module Federation 在開發效率方面的優勢往往能夠直接轉化為商業價值。
 
 **技術債務的管理**是長期考量。過度複雜的架構往往會積累技術債務，影響長期的開發效率和系統穩定性。相對簡單的 Module Federation 架構更容易維護和演進。
 
-### 團隊協作效率的影響
+### 團隊合作效率的影響
 
-如第九篇文章所述，架構選擇對團隊協作有直接影響。Module Federation 架構在團隊協作方面有明顯優勢。**統一的開發環境**意味著所有團隊成員使用相同的工具鏈、配置和最佳實踐，減少了協作中的摩擦。
+如第九篇文章所述，架構選擇對團隊合作有直接影響。Module Federation 架構在團隊合作方面有明顯優勢。**統一的開發環境**意味著所有團隊成員使用相同的工具鏈、配置和最佳實踐，減少了合作中的摩擦。
 
-**共享的基礎設施**避免了重複建設和維護多套基礎設施的成本。測試、構建、部署、監控等系統可以在所有模組間共享，提高了整體效率。
+**共享的基礎設施**避免了重複建設和維護多套基礎設施的成本。測試、建置、部署、監控等系統可以在所有模組間共享，提高了整體效率。
 
 **靈活的責任邊界**允許不同團隊在模組層面保持相對獨立，同時在基礎設施層面保持統一。這種平衡對於大多數企業組織來說是最實用的。
 
@@ -581,9 +587,9 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
 
 即使當前適合 Module Federation，也應該為未來的架構演進做好準備。**漸進式演進**是最安全的策略。可以從單體應用開始，逐步演進到 Module Federation，再根據需要演進到更複雜的架構。
 
-**能力建設**是演進的前提。無論選擇什麼架構，都需要確保團隊具備相應的技術能力和組織能力。這包括技術技能、工具掌握、協作流程等多個方面。
+**能力建設**是演進的前提。無論選擇什麼架構，都需要確保團隊具備相應的技術能力和組織能力。這包括技術技能、工具掌握、合作流程等多個方面。
 
-**監控和評估**是演進決策的依據。需要建立完善的指標體系來評估當前架構的效果，包括開發效率、系統穩定性、用戶體驗等多個維度。
+**監控和評估**是演進決策的依據。需要建立完善的指標體系來評估當前架構的效果，包括開發效率、系統穩定性、使用者體驗等多個維度。
 
 ## 第七部分：實戰案例的深度解析
 
@@ -631,9 +637,9 @@ const createRemoteConfig = (environment) => {
     production: {
       finance: 'https://cdn.company.com/finance',
       logistics: 'https://cdn.company.com/logistics',
-    }
+    },
   };
-  
+
   return Object.entries(remoteUrls[environment]).reduce((acc, [name, url]) => {
     acc[name] = `${name}@${url}/remoteEntry.js`;
     return acc;
@@ -644,26 +650,26 @@ module.exports = {
   name: 'portal',
   remotes: createRemoteConfig(process.env.NODE_ENV),
   shared: {
-    'react': { singleton: true, eager: true },
+    react: { singleton: true, eager: true },
     'react-dom': { singleton: true, eager: true },
     'react-router-dom': { singleton: true },
     '@reduxjs/toolkit': { singleton: true },
-    'antd': { singleton: true },
+    antd: { singleton: true },
   },
   // 關鍵依賴的 blacklist 策略
   shareScope: (name, config) => {
     const blacklist = [
       '@company/shared-components',
-      '@company/shared-hooks', 
+      '@company/shared-hooks',
       '@company/shared-utils',
-      'react-phone-number-input'
+      'react-phone-number-input',
     ];
-    
+
     if (blacklist.includes(name)) {
       return false;
     }
     return config;
-  }
+  },
 };
 ```
 
@@ -679,12 +685,12 @@ module.exports = {
   exposes: {
     './Module': './src/bootstrap.tsx',
     './routes': './src/routes.tsx',
-    './store': './src/store/index.ts'
+    './store': './src/store/index.ts',
   },
   shared: {
-    'react': { singleton: true },
+    react: { singleton: true },
     'react-dom': { singleton: true },
-  }
+  },
 };
 
 // finance/src/bootstrap.tsx
@@ -716,8 +722,16 @@ import { ModuleRegistry } from './ModuleRegistry';
 
 const DynamicRouteLoader = () => {
   const moduleConfigs = [
-    { path: '/finance/*', module: 'finance', component: lazy(() => import('finance/Module')) },
-    { path: '/logistics/*', module: 'logistics', component: lazy(() => import('logistics/Module')) },
+    {
+      path: '/finance/*',
+      module: 'finance',
+      component: lazy(() => import('finance/Module')),
+    },
+    {
+      path: '/logistics/*',
+      module: 'logistics',
+      component: lazy(() => import('logistics/Module')),
+    },
   ];
 
   return (
@@ -772,7 +786,7 @@ const createRootStore = () => {
   store.registerModuleReducer = (moduleName, reducer) => {
     store.replaceReducer({
       ...store.getState(),
-      [moduleName]: reducer
+      [moduleName]: reducer,
     });
   };
 
@@ -794,33 +808,33 @@ const createSharedConfig = (excludeList = []) => {
     '@company/shared-components',
     '@company/shared-hooks',
     '@company/shared-utils',
-    
+
     // 版本敏感的第三方庫
     'react-phone-number-input',
     'moment',
     'lodash',
-    
+
     // 性能考量 - 直接打包更好
     'crypto-js',
-    'validator'
+    'validator',
   ];
-  
+
   const combinedBlacklist = [...defaultBlacklist, ...excludeList];
-  
+
   return (packageName, config) => {
     if (combinedBlacklist.includes(packageName)) {
       return false; // 不共享，各模組獨立打包
     }
-    
+
     // 針對大型庫的特殊處理
     if (packageName === 'antd') {
       return {
         singleton: true,
         requiredVersion: '^5.0.0',
-        eager: true
+        eager: true,
       };
     }
-    
+
     return config;
   };
 };
@@ -845,13 +859,13 @@ class ModuleErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     // 記錄模組載入失敗
     console.error(`Module ${this.props.moduleName} failed to load:`, error);
-    
+
     // 嘗試重新載入模組（最多3次）
     if (this.state.retryCount < 3) {
       setTimeout(() => {
-        this.setState({ 
-          hasError: false, 
-          retryCount: this.state.retryCount + 1 
+        this.setState({
+          hasError: false,
+          retryCount: this.state.retryCount + 1,
         });
       }, 2000);
     }
@@ -863,9 +877,7 @@ class ModuleErrorBoundary extends React.Component {
         <div className="module-error-fallback">
           <h3>模組暫時無法載入</h3>
           <p>我們正在嘗試重新連接...</p>
-          <button onClick={() => window.location.reload()}>
-            重新整理頁面
-          </button>
+          <button onClick={() => window.location.reload()}>重新整理頁面</button>
         </div>
       );
     }
@@ -889,7 +901,7 @@ const createEnvironmentConfig = (env) => {
       },
       cacheGroups: {
         vendor: false, // 開發環境不分割 vendor chunk
-      }
+      },
     },
     production: {
       remoteType: 'script',
@@ -902,11 +914,11 @@ const createEnvironmentConfig = (env) => {
           test: /[\\/]node_modules[\\/]/,
           chunks: 'all',
           name: 'vendors',
-        }
-      }
-    }
+        },
+      },
+    },
   };
-  
+
   return configs[env] || configs.development;
 };
 ```
@@ -942,7 +954,7 @@ const createEnvironmentConfig = (env) => {
 ```javascript
 // 在 Module Federation 中的使用
 // 這些庫被列入 blacklist，確保版本一致性
-import { sharedComponents } from '@company/shared-components'
+import { sharedComponents } from '@company/shared-components';
 // 各個模組直接使用，無需擔心跨模組通信
 ```
 
@@ -962,15 +974,15 @@ import { sharedComponents } from '@company/shared-components'
 
 Module Federation 作為一個相對較新的技術，仍在快速發展中。**工具鏈的成熟化**是一個重要趨勢。隨著 webpack、Nx 等工具的不斷改進，Module Federation 的配置和使用將變得更加簡單和可靠。
 
-**類型安全的增強**是另一個發展方向。目前 Module Federation 在 TypeScript 支援方面還有改進空間，未來可能會有更好的類型檢查和自動生成機制。透過靜態分析和代碼生成，開發者將能夠在編譯時就發現跨模組介面的不一致問題。
+**類型安全的增強**是另一個發展方向。目前 Module Federation 在 TypeScript 支援方面還有改進空間，未來可能會有更好的類型檢查和自動生成機制。透過靜態分析和程式碼生成，開發者將能夠在編譯時就發現跨模組介面的不一致問題。
 
-**性能優化**也是持續的關注點。包括更智能的模組載入策略、更好的快取機制、更優化的打包體積等。特別是在移動端和網路環境較差的場景下，這些優化將帶來顯著的用戶體驗提升。
+**性能優化**也是持續的關注點。包括更智能的模組載入策略、更好的快取機制、更優化的打包體積等。特別是在移動端和網路環境較差的場景下，這些優化將帶來顯著的使用者體驗提升。
 
 ### 與其他前端架構的整合可能性
 
 **Server-Side Rendering 的整合**是一個有前景的方向。目前 Module Federation 主要專注於客戶端，但隨著 SSR 需求的增加，如何在伺服器端實現模組的動態載入和組合成為重要議題。這不僅涉及技術實現，還涉及 SEO 優化和首屏載入性能的平衡。
 
-**邊緣計算的結合**展現了另一種可能性。透過在 CDN 節點部署輕量級的模組組合邏輯，可以實現更接近用戶的個性化內容組合，進一步提升載入性能和用戶體驗。
+**邊緣計算的結合**展現了另一種可能性。透過在 CDN 節點部署輕量級的模組組合邏輯，可以實現更接近使用者的個性化內容組合，進一步提升載入性能和使用者體驗。
 
 **跨平台擴展**也值得關注。隨著 React Native、Electron 等技術的發展，Module Federation 的概念可能擴展到移動端和桌面端應用，實現真正的全平台模組共享。
 
@@ -988,7 +1000,7 @@ Module Federation 作為一個相對較新的技術，仍在快速發展中。**
 
 **漸進式實施策略**是最安全的路徑。建議從單一模組的拆分開始，逐步擴展到更複雜的模組組合。這種方式不僅降低了實施風險，也讓團隊有機會在實踐中學習和適應新的開發模式。
 
-**持續評估和優化**是長期成功的保證。建立完善的指標體系來評估架構效果，包括開發效率、系統穩定性、用戶體驗、維護成本等多個維度。定期評估這些指標，並根據實際情況調整架構策略。
+**持續評估和優化**是長期成功的保證。建立完善的指標體系來評估架構效果，包括開發效率、系統穩定性、使用者體驗、維護成本等多個維度。定期評估這些指標，並根據實際情況調整架構策略。
 
 ### 避免常見的決策陷阱
 
@@ -1002,7 +1014,7 @@ Module Federation 作為一個相對較新的技術，仍在快速發展中。**
 
 經過十篇文章的深入探討，我們從 Monorepo 的基礎概念出發，逐步深入到具體的工具選擇、架構設計、實施策略，最終聚焦到微前端這一前瞻性的架構模式。這個過程本身就體現了企業級軟體開發的核心思維：**從實際需求出發，通過漸進式的改進和優化，最終實現技術架構與業務需求的最佳匹配**。
 
-Module Federation 的價值不在於它是最先進的微前端技術，而在於它在理想與現實之間找到了最佳平衡點。它提供了足夠的模組化能力來支持大型團隊的協作開發，同時保持了足夠的簡潔性來確保系統的穩定性和可維護性。
+Module Federation 的價值不在於它是最先進的微前端技術，而在於它在理想與現實之間找到了最佳平衡點。它提供了足夠的模組化能力來支持大型團隊的合作開發，同時保持了足夠的簡潔性來確保系統的穩定性和可維護性。
 
 ### 技術選擇的哲學思考
 
@@ -1022,4 +1034,4 @@ Module Federation 的價值不在於它是最先進的微前端技術，而在�
 
 重要的是建立正確的思維框架：以業務價值為導向，以團隊能力為基礎，以長期發展為目標。在這個框架下，無論選擇什麼樣的具體技術方案，都能夠為企業和團隊創造真正的價值。
 
-微前端的未來不在於技術的複雜程度，而在於它能夠多大程度上幫助我們構建更好的軟體產品。在這個目標下，Module Federation 和其他各種微前端方案都只是手段，而不是目的。選擇最適合的手段，才能最好地實現我們的目的。
+微前端的未來不在於技術的複雜程度，而在於它能夠多大程度上幫助我們建置更好的軟體產品。在這個目標下，Module Federation 和其他各種微前端方案都只是手段，而不是目的。選擇最適合的手段，才能最好地實現我們的目的。
